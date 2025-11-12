@@ -1,9 +1,22 @@
 body {
-  font-family: Arial, sans-serif;
-  padding: 20px;
-  background: #f0f0f0;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 20px;
 }
-
-input { margin: 5px; padding: 5px; }
-button { margin: 5px; padding: 5px 10px; }
-#dashboard { background: #fff; padding: 20px; border-radius: 5px; }
+input {
+    margin: 5px;
+}
+button {
+    margin: 5px;
+    padding: 5px 10px;
+}
+#dashboard {
+    margin-top: 20px;
+}
+#game-log {
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    height: 150px;
+    overflow-y: auto;
+    padding: 5px;
+}

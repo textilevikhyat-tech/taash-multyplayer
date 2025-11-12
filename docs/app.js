@@ -1,85 +1,123 @@
+// app.js - GitHub Pages + Render backend ready
+
 const baseURL = "https://taash-multyplayer.onrender.com/api";
-let socket = null;
+const socket = io("https://taash-multyplayer.onrender.com");
+
 let currentUser = null;
 
-// Register
+// Helper to update dashboard coins
+function updateCoins() {
+  if (currentUser) {
+    document.getElementById("user-coins").innerText = currentUser.coins;
+  }
+}
+
+// ===== Register =====
 async function register() {
-    const username = document.getElementById('reg-username').value;
-    const password = document.getElementById('reg-password').value;
+  const username = document.getElementById("reg-username").value;
+  const password = document.getElementById("reg-password").value;
 
+  if (!username || !password) return alert("Enter username & password");
+
+  try {
     const res = await fetch(`${baseURL}/auth/register`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username, password})
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    alert(data.message);
-}
-
-// Login
-async function login() {
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
-
-    const res = await fetch(`${baseURL}/auth/login`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username, password})
-    });
-    const data = await res.json();
-    if (res.status === 200) {
-        currentUser = data.user;
-        document.getElementById('auth').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('user-name').innerText = currentUser.username;
-        document.getElementById('user-coins').innerText = currentUser.coins;
+    if (res.ok) {
+      alert("Registered successfully! Now login.");
     } else {
-        alert(data.message);
+      alert(data.message);
     }
+  } catch (err) {
+    alert("Server error: " + err.message);
+  }
 }
 
-// Wallet
-async function addCoins() {
-    const coins = parseInt(document.getElementById('coin-amount').value);
-    if (!coins || !currentUser) return;
+// ===== Login =====
+async function login() {
+  const username = document.getElementById("login-username").value;
+  const password = document.getElementById("login-password").value;
 
-    const res = await fetch(`${baseURL}/wallet/add`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({userId: currentUser._id, coins})
+  if (!username || !password) return alert("Enter username & password");
+
+  try {
+    const res = await fetch(`${baseURL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    alert(data.message);
-    currentUser.coins = data.coins;
-    document.getElementById('user-coins').innerText = currentUser.coins;
+    if (res.ok) {
+      currentUser = data.user;
+      document.getElementById("user-name").innerText = currentUser.username;
+      document.getElementById("dashboard").style.display = "block";
+      document.getElementById("auth").style.display = "none";
+      updateCoins();
+    } else {
+      alert(data.message);
+    }
+  } catch (err) {
+    alert("Server error: " + err.message);
+  }
+}
+
+// ===== Wallet Actions =====
+async function addCoins() {
+  const amount = parseInt(document.getElementById("coin-amount").value);
+  if (!amount) return alert("Enter coin amount");
+
+  try {
+    const res = await fetch(`${baseURL}/wallet/add`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUser._id, coins: amount })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      currentUser.coins = data.user.coins;
+      updateCoins();
+      alert("Coins added!");
+    } else alert(data.message);
+  } catch (err) {
+    alert("Server error: " + err.message);
+  }
 }
 
 async function deductCoins() {
-    const coins = parseInt(document.getElementById('coin-amount').value);
-    if (!coins || !currentUser) return;
+  const amount = parseInt(document.getElementById("coin-amount").value);
+  if (!amount) return alert("Enter coin amount");
 
+  try {
     const res = await fetch(`${baseURL}/wallet/deduct`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({userId: currentUser._id, coins})
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUser._id, coins: amount })
     });
     const data = await res.json();
-    alert(data.message);
-    currentUser.coins = data.coins;
-    document.getElementById('user-coins').innerText = currentUser.coins;
+    if (res.ok) {
+      currentUser.coins = data.user.coins;
+      updateCoins();
+      alert("Coins deducted!");
+    } else alert(data.message);
+  } catch (err) {
+    alert("Server error: " + err.message);
+  }
 }
 
-// Game Room
+// ===== Game Room =====
 function joinGame() {
-    const room = document.getElementById('room-name').value;
-    if (!room || !currentUser) return;
+  const room = document.getElementById("room-name").value;
+  if (!room) return alert("Enter room name");
 
-    if (!socket) socket = io("https://taash-multyplayer.onrender.com");
+  socket.emit("joinGame", room, currentUser.username);
 
-    socket.emit('joinGame', room, currentUser.username);
-
-    socket.on('playerJoined', (data) => {
-        const log = document.getElementById('game-log');
-        log.innerHTML += `<p>${data.username} joined the room!</p>`;
-    });
+  socket.on("playerJoined", (data) => {
+    const log = document.getElementById("game-log");
+    const p = document.createElement("p");
+    p.innerText = `${data.username} joined room ${room}`;
+    log.appendChild(p);
+  });
 }

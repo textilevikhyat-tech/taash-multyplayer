@@ -19,7 +19,7 @@ app.use('/api/wallet', walletRoutes);
 
 // MongoDB Connection
 // Special characters in password must be URL-encoded (%40 for @)
-const mongoURI = "mongodb+srv://textilevikhyat_db_user:bittuboss%409560@tash-multyplayer.pntqggs.mongodb.net/tash_multiplayer_db?retryWrites=true&w=majority";
+const mongoURI = "mongodb+srv://textilevikhyat_db_user:005WZZly6iIDC8KQ@tash-multyplayer.pntqggs.mongodb.net/tash_multiplayer_db?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))

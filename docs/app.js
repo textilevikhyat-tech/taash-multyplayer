@@ -1,22 +1,16 @@
-// app.js - GitHub Pages + Render backend ready
-
 const baseURL = "https://taash-multyplayer.onrender.com/api";
 const socket = io("https://taash-multyplayer.onrender.com");
 
 let currentUser = null;
 
-// Helper to update dashboard coins
 function updateCoins() {
-  if (currentUser) {
-    document.getElementById("user-coins").innerText = currentUser.coins;
-  }
+  if (currentUser) document.getElementById("user-coins").innerText = currentUser.coins;
 }
 
-// ===== Register =====
+// Register
 async function register() {
   const username = document.getElementById("reg-username").value;
   const password = document.getElementById("reg-password").value;
-
   if (!username || !password) return alert("Enter username & password");
 
   try {
@@ -26,21 +20,14 @@ async function register() {
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    if (res.ok) {
-      alert("Registered successfully! Now login.");
-    } else {
-      alert(data.message);
-    }
-  } catch (err) {
-    alert("Server error: " + err.message);
-  }
+    alert(res.ok ? "Registered! Login now." : data.message);
+  } catch (err) { alert("Server error: " + err.message); }
 }
 
-// ===== Login =====
+// Login
 async function login() {
   const username = document.getElementById("login-username").value;
   const password = document.getElementById("login-password").value;
-
   if (!username || !password) return alert("Enter username & password");
 
   try {
@@ -56,19 +43,14 @@ async function login() {
       document.getElementById("dashboard").style.display = "block";
       document.getElementById("auth").style.display = "none";
       updateCoins();
-    } else {
-      alert(data.message);
-    }
-  } catch (err) {
-    alert("Server error: " + err.message);
-  }
+    } else alert(data.message);
+  } catch (err) { alert("Server error: " + err.message); }
 }
 
-// ===== Wallet Actions =====
+// Wallet
 async function addCoins() {
   const amount = parseInt(document.getElementById("coin-amount").value);
-  if (!amount) return alert("Enter coin amount");
-
+  if (!amount) return alert("Enter amount");
   try {
     const res = await fetch(`${baseURL}/wallet/add`, {
       method: "POST",
@@ -76,20 +58,14 @@ async function addCoins() {
       body: JSON.stringify({ userId: currentUser._id, coins: amount })
     });
     const data = await res.json();
-    if (res.ok) {
-      currentUser.coins = data.user.coins;
-      updateCoins();
-      alert("Coins added!");
-    } else alert(data.message);
-  } catch (err) {
-    alert("Server error: " + err.message);
-  }
+    if (res.ok) { currentUser.coins = data.user.coins; updateCoins(); alert("Coins added!"); }
+    else alert(data.message);
+  } catch (err) { alert(err.message); }
 }
 
 async function deductCoins() {
   const amount = parseInt(document.getElementById("coin-amount").value);
-  if (!amount) return alert("Enter coin amount");
-
+  if (!amount) return alert("Enter amount");
   try {
     const res = await fetch(`${baseURL}/wallet/deduct`, {
       method: "POST",
@@ -97,21 +73,15 @@ async function deductCoins() {
       body: JSON.stringify({ userId: currentUser._id, coins: amount })
     });
     const data = await res.json();
-    if (res.ok) {
-      currentUser.coins = data.user.coins;
-      updateCoins();
-      alert("Coins deducted!");
-    } else alert(data.message);
-  } catch (err) {
-    alert("Server error: " + err.message);
-  }
+    if (res.ok) { currentUser.coins = data.user.coins; updateCoins(); alert("Coins deducted!"); }
+    else alert(data.message);
+  } catch (err) { alert(err.message); }
 }
 
-// ===== Game Room =====
+// Game Room
 function joinGame() {
   const room = document.getElementById("room-name").value;
   if (!room) return alert("Enter room name");
-
   socket.emit("joinGame", room, currentUser.username);
 
   socket.on("playerJoined", (data) => {

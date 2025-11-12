@@ -1,22 +1,7 @@
-body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 20px;
-}
-input {
-    margin: 5px;
-}
-button {
-    margin: 5px;
-    padding: 5px 10px;
-}
-#dashboard {
-    margin-top: 20px;
-}
-#game-log {
-    margin-top: 20px;
-    border: 1px solid #ccc;
-    height: 150px;
-    overflow-y: auto;
-    padding: 5px;
-}
+body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+h1 { text-align: center; color: #333; }
+#auth, #dashboard { max-width: 400px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+input { width: calc(100% - 20px); padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #ccc; }
+button { padding: 10px 15px; margin: 5px 0; border-radius: 5px; border: none; background: #28a745; color: #fff; cursor: pointer; }
+button:hover { background: #218838; }
+#game-log { margin-top: 15px; background: #eee; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto; }

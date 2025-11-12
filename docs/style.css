@@ -1,7 +1,69 @@
-body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-h1 { text-align: center; color: #333; }
-#auth, #dashboard { max-width: 400px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-input { width: calc(100% - 20px); padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #ccc; }
-button { padding: 10px 15px; margin: 5px 0; border-radius: 5px; border: none; background: #28a745; color: #fff; cursor: pointer; }
-button:hover { background: #218838; }
-#game-log { margin-top: 15px; background: #eee; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f8f9fa;
+  color: #333;
+  text-align: center;
+  padding: 20px;
+}
+
+h1 {
+  color: #2c3e50;
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+#auth, #dashboard {
+  background: white;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+input {
+  width: 80%;
+  padding: 8px;
+  margin: 6px 0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+button {
+  padding: 8px 15px;
+  margin: 6px;
+  background: #3498db;
+  border: none;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: #2980b9;
+}
+
+.logout {
+  background: #e74c3c;
+}
+
+.logout:hover {
+  background: #c0392b;
+}
+
+.message {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.log-box {
+  background: #ecf0f1;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+  height: 150px;
+  overflow-y: auto;
+  text-align: left;
+  font-size: 0.9rem;
+}

@@ -1,139 +1,129 @@
-// app.js
+// frontend/docs/app.js
 
-const API_BASE = "https://taash-multyplayer.onrender.com/api";
+const API_BASE = "https://taash-multyplayer.onrender.com"; // Backend URL
+const socket = io(API_BASE); // Socket.io connection
 
-let currentUser = null;
-let token = null; // Optional: if using JWT later
+let token = localStorage.getItem("token") || null;
+let username = localStorage.getItem("username") || null;
 
-// ---------------------- REGISTER ----------------------
+const authSection = document.getElementById("auth");
+const dashboard = document.getElementById("dashboard");
+const userNameDisplay = document.getElementById("user-name");
+const userCoinsDisplay = document.getElementById("user-coins");
+const gameLog = document.getElementById("game-log");
+
+// ✅ REGISTER
 async function register() {
   const username = document.getElementById("reg-username").value;
   const password = document.getElementById("reg-password").value;
 
-  if (!username || !password) return alert("Enter username & password");
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
 
-  try {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      alert("Registered successfully! Please login.");
-      document.getElementById("reg-username").value = "";
-      document.getElementById("reg-password").value = "";
-    } else {
-      alert(data.message);
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  }
+  const data = await res.json();
+  alert(data.message || "Registered successfully!");
 }
 
-// ---------------------- LOGIN ----------------------
+// ✅ LOGIN
 async function login() {
   const username = document.getElementById("login-username").value;
   const password = document.getElementById("login-password").value;
 
-  if (!username || !password) return alert("Enter username & password");
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
 
-  try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      currentUser = data.user;
-      token = "dummy"; // Optional JWT
-      showDashboard();
-      updateCoins();
-    } else {
-      alert(data.message);
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
+  const data = await res.json();
+  if (data.token) {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("username", data.username);
+    token = data.token;
+    userNameDisplay.textContent = data.username;
+    showDashboard();
+    getWallet();
+  } else {
+    alert(data.message || "Login failed");
   }
 }
 
-// ---------------------- DASHBOARD ----------------------
+// ✅ SHOW DASHBOARD
 function showDashboard() {
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("dashboard").style.display = "block";
-  document.getElementById("user-name").innerText = currentUser.username;
+  authSection.style.display = "none";
+  dashboard.style.display = "block";
 }
 
-// ---------------------- UPDATE COINS ----------------------
-function updateCoins() {
-  document.getElementById("user-coins").innerText = currentUser.coins;
+// ✅ GET WALLET
+async function getWallet() {
+  const res = await fetch(`${API_BASE}/api/wallet`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  userCoinsDisplay.textContent = data.coins || 0;
 }
 
-// ---------------------- ADD COINS ----------------------
+// ✅ ADD COINS
 async function addCoins() {
-  const amount = parseInt(document.getElementById("coin-amount").value);
-  if (!amount || amount <= 0) return alert("Enter valid amount");
-
-  try {
-    const res = await fetch(`${API_BASE}/wallet/add`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUser._id, coins: amount }),
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      currentUser.coins += amount;
-      updateCoins();
-      alert("Coins added!");
-    } else alert(data.message);
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  }
+  const coins = parseInt(document.getElementById("coin-amount").value);
+  await fetch(`${API_BASE}/api/wallet/add`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ coins }),
+  });
+  getWallet();
 }
 
-// ---------------------- DEDUCT COINS ----------------------
+// ✅ DEDUCT COINS
 async function deductCoins() {
-  const amount = parseInt(document.getElementById("coin-amount").value);
-  if (!amount || amount <= 0) return alert("Enter valid amount");
-  if (currentUser.coins < amount) return alert("Not enough coins");
-
-  try {
-    const res = await fetch(`${API_BASE}/wallet/deduct`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUser._id, coins: amount }),
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      currentUser.coins -= amount;
-      updateCoins();
-      alert("Coins deducted!");
-    } else alert(data.message);
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  }
+  const coins = parseInt(document.getElementById("coin-amount").value);
+  await fetch(`${API_BASE}/api/wallet/deduct`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ coins }),
+  });
+  getWallet();
 }
 
-// ---------------------- SOCKET.IO ----------------------
-const socket = io("https://taash-multyplayer.onrender.com");
-
+// ✅ JOIN GAME ROOM
 function joinGame() {
   const room = document.getElementById("room-name").value;
+  const username = localStorage.getItem("username");
+
   if (!room) return alert("Enter room name");
 
-  socket.emit("joinGame", room, currentUser.username);
+  socket.emit("joinGame", room, username);
+  logMessage(`🟢 Joined room: ${room}`);
+}
 
-  socket.on("playerJoined", ({ username }) => {
-    const log = document.getElementById("game-log");
-    log.innerHTML += `<p>${username} joined the room!</p>`;
-  });
+// ✅ LISTEN FOR EVENTS
+socket.on("connect", () => {
+  console.log("✅ Connected to server:", socket.id);
+});
+
+socket.on("playerJoined", (data) => {
+  logMessage(`👤 ${data.username} joined the room`);
+});
+
+// ✅ LOG MESSAGE FUNCTION
+function logMessage(msg) {
+  const p = document.createElement("p");
+  p.textContent = msg;
+  gameLog.appendChild(p);
+}
+
+// ✅ AUTO-LOGIN CHECK
+if (token && username) {
+  showDashboard();
+  userNameDisplay.textContent = username;
+  getWallet();
 }

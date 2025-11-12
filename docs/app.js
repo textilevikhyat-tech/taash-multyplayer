@@ -1,4 +1,4 @@
-// frontend/docs/app.js
+// ✅ frontend/docs/app.js — FINAL VERSION
 
 const API_BASE = "https://taash-multyplayer.onrender.com"; // Backend URL
 const socket = io(API_BASE); // Socket.io connection
@@ -6,6 +6,7 @@ const socket = io(API_BASE); // Socket.io connection
 let token = localStorage.getItem("token") || null;
 let username = localStorage.getItem("username") || null;
 
+// DOM elements
 const authSection = document.getElementById("auth");
 const dashboard = document.getElementById("dashboard");
 const userNameDisplay = document.getElementById("user-name");
@@ -69,6 +70,7 @@ async function getWallet() {
 // ✅ ADD COINS
 async function addCoins() {
   const coins = parseInt(document.getElementById("coin-amount").value);
+  if (!coins || coins <= 0) return alert("Enter valid amount");
   await fetch(`${API_BASE}/api/wallet/add`, {
     method: "POST",
     headers: {
@@ -83,6 +85,7 @@ async function addCoins() {
 // ✅ DEDUCT COINS
 async function deductCoins() {
   const coins = parseInt(document.getElementById("coin-amount").value);
+  if (!coins || coins <= 0) return alert("Enter valid amount");
   await fetch(`${API_BASE}/api/wallet/deduct`, {
     method: "POST",
     headers: {
@@ -102,10 +105,15 @@ function joinGame() {
   if (!room) return alert("Enter room name");
 
   socket.emit("joinGame", room, username);
-  logMessage(`🟢 Joined room: ${room}`);
+
+  // show simple room dashboard after joining
+  document.getElementById("game-log").innerHTML = `
+    <h3>🎮 You are in Room: <span style="color:green">${room}</span></h3>
+    <p>Waiting for players to join...</p>
+  `;
 }
 
-// ✅ LISTEN FOR EVENTS
+// ✅ SOCKET EVENTS
 socket.on("connect", () => {
   console.log("✅ Connected to server:", socket.id);
 });
@@ -114,14 +122,14 @@ socket.on("playerJoined", (data) => {
   logMessage(`👤 ${data.username} joined the room`);
 });
 
-// ✅ LOG MESSAGE FUNCTION
+// ✅ LOG FUNCTION
 function logMessage(msg) {
   const p = document.createElement("p");
   p.textContent = msg;
   gameLog.appendChild(p);
 }
 
-// ✅ AUTO-LOGIN CHECK
+// ✅ AUTO LOGIN
 if (token && username) {
   showDashboard();
   userNameDisplay.textContent = username;

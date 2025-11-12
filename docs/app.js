@@ -1,22 +1,21 @@
-// ====== CONFIG ======
-const API_BASE = "https://taash-multyplayer.onrender.com";
+const API_BASE = "https://taash-multyplayer.onrender.com"; // backend
 const socket = io(API_BASE);
 
 let token = localStorage.getItem("token") || null;
 let username = localStorage.getItem("username") || null;
 
+// --- Helper selectors
 const authSection = document.getElementById("auth");
 const dashboard = document.getElementById("dashboard");
 const userNameDisplay = document.getElementById("user-name");
 const userCoinsDisplay = document.getElementById("user-coins");
 const gameLog = document.getElementById("game-log");
-const authMsg = document.getElementById("auth-message");
 
-// ====== REGISTER ======
+// ✅ REGISTER
 async function register() {
   const username = document.getElementById("reg-username").value.trim();
   const password = document.getElementById("reg-password").value.trim();
-  if (!username || !password) return alert("Enter both fields");
+  if (!username || !password) return alert("Enter username and password");
 
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",
@@ -27,13 +26,13 @@ async function register() {
   alert(data.message || "Registered successfully!");
 }
 
-// ====== LOGIN ======
+// ✅ LOGIN
 async function login() {
-  const user = document.getElementById("login-username").value.trim();
-  const pass = document.getElementById("login-password").value.trim();
+  const usernameInput = document.getElementById("login-username").value.trim();
+  const passwordInput = document.getElementById("login-password").value.trim();
 
-  if (!user || !pass) {
-    alert("Please enter both username and password");
+  if (!usernameInput || !passwordInput) {
+    alert("Please enter both fields");
     return;
   }
 
@@ -41,7 +40,7 @@ async function login() {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: user, password: pass }),
+      body: JSON.stringify({ username: usernameInput, password: passwordInput }),
     });
 
     const data = await res.json();
@@ -52,33 +51,35 @@ async function login() {
       token = data.token;
       username = data.username;
 
-      authMsg.textContent = "✅ Login successful! Redirecting...";
-      authMsg.style.color = "green";
-
-      setTimeout(() => {
-        showDashboard();
-        getWallet();
-      }, 600);
+      document.getElementById("auth-message").textContent =
+        "✅ Login successful! Redirecting...";
+      showDashboard();
+      getWallet();
     } else {
-      authMsg.textContent = data.message || "❌ Login failed!";
-      authMsg.style.color = "red";
+      alert(data.message || "Login failed");
     }
   } catch (err) {
-    console.error("Login Error:", err);
-    alert("⚠️ Server not reachable. Try again later.");
+    console.error("Login error:", err);
+    alert("Server not reachable. Try again later.");
   }
 }
 
-// ====== SHOW DASHBOARD ======
+// ✅ DASHBOARD DISPLAY
 function showDashboard() {
-  const user = localStorage.getItem("username") || "Player";
-  userNameDisplay.textContent = user;
   authSection.style.display = "none";
   dashboard.style.display = "block";
-  console.log("✅ Dashboard shown for:", user);
+  userNameDisplay.textContent = localStorage.getItem("username");
 }
 
-// ====== GET WALLET ======
+// ✅ LOGOUT
+function logout() {
+  localStorage.clear();
+  authSection.style.display = "block";
+  dashboard.style.display = "none";
+  document.getElementById("auth-message").textContent = "";
+}
+
+// ✅ WALLET FETCH
 async function getWallet() {
   try {
     const res = await fetch(`${API_BASE}/api/wallet`, {
@@ -86,16 +87,15 @@ async function getWallet() {
     });
     const data = await res.json();
     userCoinsDisplay.textContent = data.coins || 0;
-  } catch (err) {
-    console.error("Wallet fetch error:", err);
+  } catch {
+    userCoinsDisplay.textContent = "0";
   }
 }
 
-// ====== ADD COINS ======
+// ✅ ADD COINS
 async function addCoins() {
   const coins = parseInt(document.getElementById("coin-amount").value);
-  if (!coins) return alert("Enter valid coin amount");
-
+  if (!coins) return alert("Enter amount");
   await fetch(`${API_BASE}/api/wallet/add`, {
     method: "POST",
     headers: {
@@ -107,11 +107,10 @@ async function addCoins() {
   getWallet();
 }
 
-// ====== DEDUCT COINS ======
+// ✅ DEDUCT COINS
 async function deductCoins() {
   const coins = parseInt(document.getElementById("coin-amount").value);
-  if (!coins) return alert("Enter valid coin amount");
-
+  if (!coins) return alert("Enter amount");
   await fetch(`${API_BASE}/api/wallet/deduct`, {
     method: "POST",
     headers: {
@@ -123,43 +122,50 @@ async function deductCoins() {
   getWallet();
 }
 
-// ====== JOIN GAME ======
+// ✅ JOIN GAME
 function joinGame() {
   const room = document.getElementById("room-name").value.trim();
-  const username = localStorage.getItem("username");
-  if (!room) return alert("Enter room name first");
-
-  socket.emit("joinGame", room, username);
+  const user = localStorage.getItem("username");
+  if (!room) return alert("Enter room name");
+  socket.emit("joinRoom", { room, username: user });
   logMessage(`🟢 You joined room: ${room}`);
 }
 
-// ====== SOCKET EVENTS ======
-socket.on("connect", () => {
-  console.log("✅ Connected to server:", socket.id);
-});
-
-socket.on("playerJoined", (data) => {
-  logMessage(`👤 ${data.username} joined the room`);
-});
-
-// ====== LOG OUT ======
-function logout() {
-  localStorage.clear();
-  dashboard.style.display = "none";
-  authSection.style.display = "block";
-  authMsg.textContent = "";
-  console.log("🚪 Logged out successfully");
+// ✅ START GAME
+function startGame() {
+  const room = document.getElementById("room-name").value.trim();
+  if (!room) return alert("Enter room name");
+  socket.emit("startGame", room);
 }
 
-// ====== GAME LOG UI ======
+// ✅ SOCKET EVENTS
+socket.on("connect", () => console.log("Connected:", socket.id));
+
+socket.on("roomUpdate", (data) => {
+  logMessage(
+    `👥 Room: ${data.room} — Players: ${data.players
+      .map((p) => p.username)
+      .join(", ")}`
+  );
+});
+
+socket.on("gameStarted", (data) => {
+  logMessage("🎮 Game started! Cards have been dealt.");
+  console.log(data.hands);
+});
+
+socket.on("errorMessage", (msg) => {
+  alert("⚠️ " + msg.message);
+});
+
+// ✅ LOG HELPER
 function logMessage(msg) {
   const p = document.createElement("p");
   p.textContent = msg;
   gameLog.appendChild(p);
-  gameLog.scrollTop = gameLog.scrollHeight;
 }
 
-// ====== AUTO LOGIN ======
+// ✅ AUTO LOGIN
 if (token && username) {
   showDashboard();
   getWallet();

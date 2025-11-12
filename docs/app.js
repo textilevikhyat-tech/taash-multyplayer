@@ -1,53 +1,59 @@
 async function login() {
-  const username = document.getElementById("login-username").value.trim();
-  const password = document.getElementById("login-password").value.trim();
+  const user = document.getElementById("login-username").value.trim();
+  const pass = document.getElementById("login-password").value.trim();
 
-  if (!username || !password) {
+  if (!user || !pass) {
     alert("Please enter both username and password");
     return;
   }
 
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
 
-  const data = await res.json();
+    const data = await res.json();
 
-  if (data.token) {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("username", data.username);
-    token = data.token;
-    username = data.username;
+    if (data.token) {
+      // ✅ Store session
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("username", data.username);
+      token = data.token;
+      username = data.username;
 
-    document.getElementById("auth-message").textContent = "✅ Login successful! Redirecting...";
-    
-    // Show dashboard
-    showDashboard();
-    getWallet();
+      document.getElementById("auth-message").textContent =
+        "✅ Login successful! Redirecting...";
 
-    setTimeout(() => {
-      document.getElementById("auth").style.display = "none";
-      document.getElementById("dashboard").style.display = "block";
-    }, 800);
-  } else {
-    alert(data.message || "❌ Login failed. Try again.");
+      // ✅ Hide auth + show dashboard
+      setTimeout(() => {
+        showDashboard();
+        getWallet();
+      }, 500);
+    } else {
+      alert(data.message || "❌ Login failed. Try again.");
+    }
+  } catch (err) {
+    console.error("Login Error:", err);
+    alert("⚠️ Server not reachable. Try again later.");
   }
 }
 
-// ✅ Show Dashboard function
+// ✅ SHOW DASHBOARD
 function showDashboard() {
-  const username = localStorage.getItem("username");
-  document.getElementById("user-name").textContent = username || "Player";
+  const user = localStorage.getItem("username") || "Player";
+  document.getElementById("user-name").textContent = user;
   document.getElementById("auth").style.display = "none";
   document.getElementById("dashboard").style.display = "block";
+  console.log("✅ Dashboard shown for:", user);
 }
 
-// ✅ Logout function
+// ✅ LOGOUT
 function logout() {
   localStorage.clear();
   document.getElementById("dashboard").style.display = "none";
   document.getElementById("auth").style.display = "block";
   document.getElementById("auth-message").textContent = "";
+  console.log("🚪 Logged out successfully");
 }

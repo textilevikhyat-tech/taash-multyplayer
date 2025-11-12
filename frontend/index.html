@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>29 Tash Multiplayer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>29 Tash Multiplayer Game</h1>
+
+  <div id="auth">
+    <h2>Register</h2>
+    <input type="text" id="reg-username" placeholder="Username">
+    <input type="password" id="reg-password" placeholder="Password">
+    <button onclick="register()">Register</button>
+
+    <h2>Login</h2>
+    <input type="text" id="login-username" placeholder="Username">
+    <input type="password" id="login-password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="dashboard" style="display:none;">
+    <h2>Welcome, <span id="user-name"></span></h2>
+    <p>Coins: <span id="user-coins"></span></p>
+
+    <h3>Wallet Actions</h3>
+    <input type="number" id="coin-amount" placeholder="Amount">
+    <button onclick="addCoins()">Add Coins</button>
+    <button onclick="deductCoins()">Deduct Coins</button>
+
+    <h3>Game Room</h3>
+    <input type="text" id="room-name" placeholder="Room Name">
+    <button onclick="joinGame()">Join Game</button>
+
+    <div id="game-log"></div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

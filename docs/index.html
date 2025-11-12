@@ -9,6 +9,7 @@
 <body>
   <h1>29 Tash Multiplayer Game</h1>
 
+  <!-- AUTH SECTION -->
   <div id="auth">
     <h2>Register</h2>
     <input type="text" id="reg-username" placeholder="Username">
@@ -19,10 +20,13 @@
     <input type="text" id="login-username" placeholder="Username">
     <input type="password" id="login-password" placeholder="Password">
     <button onclick="login()">Login</button>
+
+    <p id="auth-message" style="color: green; margin-top: 10px;"></p>
   </div>
 
-  <div id="dashboard" style="display:none;">
-    <h2>Welcome, <span id="user-name"></span></h2>
+  <!-- DASHBOARD SECTION -->
+  <div id="dashboard" style="display: none;">
+    <h2>Welcome, <span id="user-name"></span> 👋</h2>
     <p>Coins: <span id="user-coins"></span></p>
 
     <h3>Wallet Actions</h3>
@@ -34,7 +38,9 @@
     <input type="text" id="room-name" placeholder="Room Name">
     <button onclick="joinGame()">Join Game</button>
 
-    <div id="game-log"></div>
+    <div id="game-log" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; height: 150px; overflow-y: auto;"></div>
+
+    <button onclick="logout()" style="margin-top: 15px;">Logout</button>
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>

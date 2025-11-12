@@ -1,157 +1,145 @@
 // server.js
-const mongoose = require('mongoose');
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
+const mongoose = require("mongoose");
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
 
-// Routes import
-const authRoutes = require('./backend/controllers/authController');
-const walletRoutes = require('./routes/walletRoutes');
+// ✅ Import Routes
+const authRoutes = require("./backend/controllers/authController");
+const walletRoutes = require("./routes/walletRoutes");
 
 const app = express();
-app.use(cors());
+
+// ✅ CORS FIX (GitHub Pages + Backend)
+app.use(
+  cors({
+    origin: [
+      "https://textilevikhyat-tech.github.io", // ✅ Your frontend
+      "https://taash-multyplayer.onrender.com", // ✅ Your backend
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/wallet', walletRoutes);
+// ✅ ROUTES
+app.use("/api/auth", authRoutes);
+app.use("/api/wallet", walletRoutes);
 
-// MongoDB Connection
-// If password has special chars, URL-encode them (e.g. @ -> %40)
-const mongoURI = "mongodb+srv://textilevikhyat_db_user:005WZZly6iIDC8KQ@tash-multyplayer.pntqggs.mongodb.net/tash_multiplayer_db?retryWrites=true&w=majority";
+// ✅ MongoDB Connection
+const mongoURI =
+  "mongodb+srv://textilevikhyat_db_user:005WZZly6iIDC8KQ@tash-multyplayer.pntqggs.mongodb.net/tash_multiplayer_db?retryWrites=true&w=majority";
 
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose
+  .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch(err => console.log("❌ MongoDB Connection Error:", err));
+  .catch((err) => console.log("❌ MongoDB Connection Error:", err));
 
-// HTTP + Socket.io setup
+// ✅ Server + Socket.io setup
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "https://textilevikhyat-tech.github.io",
+      "https://taash-multyplayer.onrender.com",
+    ],
+  },
+});
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 
-/**
- * In-memory server state.
- * - roomCreators: { [roomName]: socketId }
- *
- * Note: This is volatile (resets when server restarts). For production, persist to DB/Redis.
- */
+// ✅ Room/Game Logic
 io.serverState = io.serverState || { roomCreators: {} };
 
-// --- socket / game logic ---
-io.on('connection', (socket) => {
-  console.log('🟢 New player connected:', socket.id);
+io.on("connection", (socket) => {
+  console.log("🟢 Player connected:", socket.id);
 
-  // Player joins a room (expects { room, username } from client)
-  socket.on('joinRoom', ({ room, username }) => {
-    if (!room) return socket.emit('errorMessage', { message: 'Room missing' });
+  socket.on("joinRoom", ({ room, username }) => {
+    if (!room) return socket.emit("errorMessage", { message: "Room missing" });
 
     socket.join(room);
-    socket.data.username = username || 'Anonymous';
+    socket.data.username = username || "Anonymous";
 
-    // set creator if none
-    const serverState = io.serverState;
-    if (!serverState.roomCreators[room]) {
-      serverState.roomCreators[room] = socket.id;
+    if (!io.serverState.roomCreators[room]) {
+      io.serverState.roomCreators[room] = socket.id;
     }
 
-    // build players list
     const socketsInRoom = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    const players = socketsInRoom.map(id => {
+    const players = socketsInRoom.map((id) => {
       const s = io.sockets.sockets.get(id);
-      return { id, username: s?.data?.username || 'Unknown' };
+      return { id, username: s?.data?.username || "Unknown" };
     });
 
-    // notify room of update
-    io.to(room).emit('roomUpdate', { players, room, creatorId: serverState.roomCreators[room] });
+    io.to(room).emit("roomUpdate", {
+      players,
+      room,
+      creatorId: io.serverState.roomCreators[room],
+    });
     console.log(`${socket.data.username} joined room ${room}`);
   });
 
-  // Start game (only creator should call this)
-  socket.on('startGame', (room) => {
-    if (!room) return socket.emit('errorMessage', { message: 'Room missing' });
+  socket.on("startGame", (room) => {
+    if (!room)
+      return socket.emit("errorMessage", { message: "Room missing" });
 
-    const serverState = io.serverState;
-    const creatorId = serverState.roomCreators[room];
+    const creatorId = io.serverState.roomCreators[room];
     if (creatorId !== socket.id) {
-      socket.emit('errorMessage', { message: 'Only room creator can start the game.' });
-      return;
+      return socket.emit("errorMessage", {
+        message: "Only the room creator can start the game.",
+      });
     }
 
     const socketsInRoom = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    if (!socketsInRoom.length) {
-      socket.emit('errorMessage', { message: 'No players in room.' });
-      return;
-    }
+    if (!socketsInRoom.length)
+      return socket.emit("errorMessage", { message: "No players in room." });
 
-    // create and shuffle deck
     const deck = shuffle(createDeck());
-
-    // deal 8 cards each up to 4 players
     const maxPlayers = Math.min(4, socketsInRoom.length);
     const hands = {};
+
     for (let i = 0; i < maxPlayers; i++) {
       const playerId = socketsInRoom[i];
       hands[playerId] = deck.slice(i * 8, (i + 1) * 8);
     }
 
-    io.to(room).emit('gameStarted', { hands });
-    console.log(`Game started in room ${room}. Hands dealt to ${maxPlayers} players.`);
+    io.to(room).emit("gameStarted", { hands });
+    console.log(`🎮 Game started in room ${room}`);
   });
 
-  // Player leaves room explicitly
-  socket.on('leaveRoom', (room) => {
+  socket.on("leaveRoom", (room) => {
     if (!room) return;
     socket.leave(room);
 
-    // update players list for that room
     const socketsInRoom = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    const players = socketsInRoom.map(id => {
+    const players = socketsInRoom.map((id) => {
       const s = io.sockets.sockets.get(id);
-      return { id, username: s?.data?.username || 'Unknown' };
+      return { id, username: s?.data?.username || "Unknown" };
     });
 
-    // if creator left, reassign creator (first socket) or delete
-    const serverState = io.serverState;
-    if (serverState.roomCreators[room] === socket.id) {
-      serverState.roomCreators[room] = socketsInRoom.length ? socketsInRoom[0] : undefined;
+    if (io.serverState.roomCreators[room] === socket.id) {
+      io.serverState.roomCreators[room] = socketsInRoom[0];
     }
 
-    io.to(room).emit('roomUpdate', { players, room, creatorId: serverState.roomCreators[room] });
-    console.log(`${socket.id} left room ${room}`);
+    io.to(room).emit("roomUpdate", {
+      players,
+      room,
+      creatorId: io.serverState.roomCreators[room],
+    });
+    console.log(`👋 ${socket.id} left room ${room}`);
   });
 
-  // On disconnect, update any rooms the socket was part of
-  socket.on('disconnect', () => {
-    const rooms = Array.from(socket.rooms).filter(r => r !== socket.id);
-    const serverState = io.serverState;
-
-    rooms.forEach(room => {
-      // remove socket from room and update players list
-      const socketsInRoom = Array.from(io.sockets.adapter.rooms.get(room) || []);
-      const players = socketsInRoom.map(id => {
-        const s = io.sockets.sockets.get(id);
-        return { id, username: s?.data?.username || 'Unknown' };
-      });
-
-      // if disconnecting socket was creator, reassign
-      if (serverState.roomCreators[room] === socket.id) {
-        serverState.roomCreators[room] = socketsInRoom.length ? socketsInRoom[0] : undefined;
-      }
-
-      io.to(room).emit('roomUpdate', { players, room, creatorId: serverState.roomCreators[room] });
-    });
-
-    console.log('🔴 Player disconnected:', socket.id);
+  socket.on("disconnect", () => {
+    console.log("🔴 Player disconnected:", socket.id);
   });
 });
 
-// Utility functions (deck)
+// ✅ Utility functions
 function createDeck() {
-  // Using 24-card deck (9,10,J,Q,K,A) x 4 suits - common in 29 variants
-  const suits = ['♠','♥','♦','♣'];
-  const ranks = ['9','10','J','Q','K','A'];
+  const suits = ["♠", "♥", "♦", "♣"];
+  const ranks = ["9", "10", "J", "Q", "K", "A"];
   const deck = [];
   for (const s of suits) {
     for (const r of ranks) {
@@ -169,6 +157,10 @@ function shuffle(deck) {
   return deck;
 }
 
-app.get('/', (req, res) => res.send('🚀 Server is running successfully!'));
+// ✅ Root test route
+app.get("/", (req, res) => res.send("🚀 Taash Multiplayer backend running"));
 
-server.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));
+// ✅ Start Server
+server.listen(PORT, () =>
+  console.log(`🌍 Server running on port ${PORT}`)
+);

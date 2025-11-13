@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -7,28 +7,30 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="rotate-message">📱 कृपया फ़ोन को लैंडस्केप मोड में घुमाएँ ताकि गेम बेहतर दिखे!</div>
-  <div id="wallet-info">Coins: <span id="coins">0</span></div>
+  <div id="rotateMsg">📱 कृपया फोन को <b>लैंडस्केप</b> मोड में घुमाएँ</div>
 
-  <div id="game-container">
-    <div id="table">
-      <h2>🃏 Game Table</h2>
-      <div id="players-list"></div>
-      <div id="status-text">Waiting...</div>
-      <div id="hand" class="hand-container"></div>
+  <div id="wallet">💰 <span id="wallet-user">--</span>: <span id="wallet-coins">0</span></div>
+
+  <div id="game-wrap">
+    <div id="table-ui">
+      <div id="players"></div>
+      <div id="center-area">
+        <div id="status">Waiting...</div>
+        <div id="hand" class="hand-container"></div>
+      </div>
     </div>
   </div>
 
-  <div id="bottom-bar">
-    <button id="create-room">Create Room</button>
-    <button id="join-room">Join Room</button>
-    <button id="start-game">Start Game</button>
-    <button id="place-bid">Place Bid</button>
-    <button id="resolve-round">Resolve Round</button>
-    <button id="leave-room">Leave</button>
+  <div id="controls">
+    <button id="createRoomBtn">Create Room</button>
+    <button id="joinRoomBtn">Join Room</button>
+    <button id="startGameBtn">Start Game</button>
+    <button id="startBidBtn">Start Bid</button>
+    <button id="resolveRoundBtn">Resolve Round</button>
+    <button id="leaveBtn">Leave</button>
   </div>
 
-  <audio id="flipSound" src="../assets/card-flip.mp3"></audio>
+  <audio id="flipSound" src="/assets/card-flip.mp3"></audio>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>

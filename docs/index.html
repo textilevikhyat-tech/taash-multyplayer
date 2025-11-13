@@ -39,28 +39,16 @@
     <div class="room">
       <h3>Game Room</h3>
       <input type="text" id="room-name" placeholder="Room Name" />
-      <button onclick="createRoom()">Create Room</button>
-      <button onclick="joinRoom()">Join Room</button>
-      <button onclick="leaveRoom()">Leave Room</button>
+      <button onclick="joinGame()">Join Room</button>
       <button onclick="startGame()">Start Game</button>
     </div>
-
-    <div id="room-info" class="info"></div>
 
     <!-- Game Log -->
     <div id="game-log" class="log"></div>
 
-    <!-- Hand -->
+    <!-- Card Hand Display -->
     <h4>Your Hand</h4>
     <div id="hand" class="hand-container"></div>
-
-    <!-- Bidding UI -->
-    <div id="bidding" style="display:none;">
-      <h3>Bidding</h3>
-      <input id="bid-amount" type="number" placeholder="Enter bid amount" />
-      <button onclick="placeBid()">Place Bid</button>
-      <div id="bids-log" class="log"></div>
-    </div>
 
     <button onclick="logout()" class="logout">Logout</button>
   </div>

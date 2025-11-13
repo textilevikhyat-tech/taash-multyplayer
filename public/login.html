@@ -1,16 +1,15 @@
-<!-- public/login.html -->
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Login</title>
-  <style>
-    body{background:#0b132b;color:#fff;font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-    .card{background:rgba(255,255,255,0.04);padding:26px;border-radius:12px;text-align:center;width:320px}
-    input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #333;background:#071126;color:#fff}
-    .btn{width:100%;padding:10px;border-radius:8px;border:none;background:#ffcc00;color:#000;font-weight:700;cursor:pointer;margin-top:8px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Login</title>
+<style>
+  body{background:#0b132b;color:#fff;font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .card{background:rgba(255,255,255,0.04);padding:26px;border-radius:12px;text-align:center;width:320px}
+  input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #333;background:#071126;color:#fff}
+  .btn{width:100%;padding:10px;border-radius:8px;border:none;background:#ffcc00;color:#000;font-weight:700;cursor:pointer;margin-top:8px}
+</style>
 </head>
 <body>
   <div class="card">
@@ -21,22 +20,21 @@
     <button class="btn" onclick="register()">Register</button>
     <p id="msg"></p>
   </div>
-
-  <script>
-    async function register(){
-      const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
-      if(!u||!p) return alert('Enter both');
-      const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-      const d=await res.json(); alert(d.message||d);
-    }
-    async function login(){
-      const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
-      if(!u||!p) return alert('Enter both');
-      const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-      const d=await res.json();
-      if(res.ok){ localStorage.setItem('token', d.token); localStorage.setItem('username', d.username); alert('Login successful'); location.href='/table/table.html'; }
-      else alert(d.message||'Login failed');
-    }
-  </script>
+<script>
+async function register(){
+  const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
+  if(!u||!p) return alert('Enter both');
+  const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const d=await res.json(); alert(d.message||d);
+}
+async function login(){
+  const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
+  if(!u||!p) return alert('Enter both');
+  const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const d=await res.json();
+  if(res.ok){ localStorage.setItem('token', d.token); localStorage.setItem('username', d.username); alert('Login successful'); location.href='/table/table.html'; }
+  else alert(d.message||'Login failed');
+}
+</script>
 </body>
 </html>

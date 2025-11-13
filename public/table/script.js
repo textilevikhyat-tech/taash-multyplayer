@@ -1,110 +1,143 @@
+// public/table/script.js
 (() => {
   const socket = io();
-  const coinsSpan = document.getElementById('coins');
-  const playersList = document.getElementById('players-list');
-  const statusText = document.getElementById('status-text');
+  const params = new URLSearchParams(location.search);
+  const roomParam = params.get('room');
+  const guestName = sessionStorage.getItem('guestName');
+  const storedUser = localStorage.getItem('username');
+  const username = storedUser || guestName || ('Guest' + Math.floor(Math.random()*10000));
+  if (!storedUser && !guestName) sessionStorage.setItem('guestName', username);
+
+  const walletUserSpan = document.getElementById('wallet-user');
+  const walletCoinsSpan = document.getElementById('wallet-coins');
+  const playersDiv = document.getElementById('players');
+  const statusDiv = document.getElementById('status');
   const handDiv = document.getElementById('hand');
+  const rotateMsg = document.getElementById('rotateMsg');
   const flipSound = document.getElementById('flipSound');
 
-  const createBtn = document.getElementById('create-room');
-  const joinBtn = document.getElementById('join-room');
-  const startBtn = document.getElementById('start-game');
-  const bidBtn = document.getElementById('place-bid');
-  const resolveBtn = document.getElementById('resolve-round');
-  const leaveBtn = document.getElementById('leave-room');
+  const createBtn = document.getElementById('createRoomBtn');
+  const joinBtn = document.getElementById('joinRoomBtn');
+  const startGameBtn = document.getElementById('startGameBtn');
+  const startBidBtn = document.getElementById('startBidBtn');
+  const resolveBtn = document.getElementById('resolveRoundBtn');
+  const leaveBtn = document.getElementById('leaveBtn');
 
-  const params = new URLSearchParams(location.search);
-  const guestParam = params.get('guest');
-  const roomParam = params.get('room');
-  const isGuestMode = params.get('guest') === 'true' || !!guestParam;
+  let currentRoom = roomParam ? roomParam.toUpperCase() : null;
 
-  let myName = localStorage.getItem('username') || (guestParam ? guestParam : null) || `Guest${Math.floor(Math.random()*10000)}`;
-  if (!localStorage.getItem('username') && isGuestMode) localStorage.setItem('username', myName);
+  walletUserSpan.textContent = username;
+  updateWalletDisplay();
 
-  // fullscreen & orientation lock first interaction
-  document.body.addEventListener('click', async () => {
+  async function tryFullscreenAndLandscape(){
     try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch(e){}
     try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch(e){}
-  }, { once: true });
-
-  async function loadWallet(){
-    const token = localStorage.getItem('token');
-    if (!token) { coinsSpan.textContent = 'Guest'; return; }
-    try {
-      const res = await fetch('/api/me/wallet', { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const d = await res.json();
-        coinsSpan.textContent = d.coins;
-      } else coinsSpan.textContent = '0';
-    } catch { coinsSpan.textContent = '0'; }
   }
-  loadWallet();
+  document.body.addEventListener('click', tryFullscreenAndLandscape, { once: true });
+
+  function checkOrientation(){
+    if (window.innerHeight > window.innerWidth){
+      rotateMsg.style.display = 'flex';
+    } else rotateMsg.style.display = 'none';
+  }
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', checkOrientation);
+  checkOrientation();
 
   socket.on('connect', () => {
-    if (roomParam) socket.emit('joinRoom', { roomCode: roomParam, username: myName });
+    if (currentRoom) {
+      socket.emit('joinRoom', { roomCode: currentRoom, username });
+    }
   });
 
-  socket.on('roomCreated', ({ roomCode }) => { statusText.textContent = `Room: ${roomCode}`; alert('Room: '+roomCode); });
-  socket.on('joinedRoom', ({ roomCode }) => { statusText.textContent = `Joined ${roomCode}`; });
-  socket.on('roomUpdate', ({ roomCode, players, creatorId }) => {
-    playersList.innerHTML = '';
-    players.forEach(p => { const el=document.createElement('div'); el.className='p'; el.innerText=p + (p===localStorage.getItem('username') ? ' (You)' : ''); playersList.appendChild(el); });
-    statusText.textContent = `Players (${players.length}) in ${roomCode}`;
+  socket.on('roomCreated', ({ roomCode }) => {
+    currentRoom = roomCode;
+    statusDiv.textContent = `Room created: ${roomCode}`;
+    alert('Room: ' + roomCode + ' (share with friend to join)');
+  });
+
+  socket.on('joinedRoom', ({ roomCode }) => {
+    currentRoom = roomCode;
+    statusDiv.textContent = `Joined ${roomCode}`;
+  });
+
+  socket.on('roomUpdate', ({ roomCode, players }) => {
+    currentRoom = roomCode;
+    playersDiv.innerHTML = '';
+    players.forEach(p => {
+      const el = document.createElement('div'); el.className='player'; el.textContent = p;
+      if (p === username) el.textContent += ' (You)';
+      playersDiv.appendChild(el);
+    });
+    statusDiv.textContent = `Players: ${players.length} in ${roomCode}`;
   });
 
   socket.on('gameStarted', ({ hands }) => {
-    statusText.textContent = 'Game started';
-    // pick our hand by socket id or username
-    const myHand = hands[socket.id] || hands[myName] || (() => {
-      for (const k in hands) {
-        if (Array.isArray(hands[k]) && hands[k].length) return hands[k];
-      }
-      return [];
-    })();
+    statusDiv.textContent = 'Game started — cards dealt';
+    let myHand = hands[socket.id] || hands[username];
+    if (!myHand) {
+      for (const k in hands) { if (Array.isArray(hands[k]) && hands[k].length) { myHand = hands[k]; break; } }
+    }
     renderHand(myHand || []);
   });
 
-  socket.on('cardPlayed', ({ username, card }) => { statusText.textContent = `${username} played ${card}`; });
-  socket.on('walletUpdate', ({ username, coins }) => {
-    if (username === localStorage.getItem('username')) coinsSpan.textContent = coins;
-    statusText.textContent = `${username} wallet: ${coins}`;
+  socket.on('yourTurn', ({ message }) => {
+    statusDiv.textContent = message || 'Your turn';
   });
-  socket.on('bidStarted', ({ biddingTeam, bidAmount }) => { statusText.textContent = `Bid ${bidAmount} by ${biddingTeam.join(' & ')}`; });
+
+  socket.on('walletUpdate', ({ username: who, coins }) => {
+    if (who === walletUserSpan.textContent) walletCoinsSpan.textContent = coins;
+    statusDiv.textContent = `${who} wallet updated: ${coins}`;
+  });
+
+  socket.on('bidStarted', ({ biddingTeam, bidAmount }) => {
+    statusDiv.textContent = `Bid ${bidAmount} started by ${biddingTeam.join(', ')}`;
+  });
+
   socket.on('roundResolved', ({ winningTeam, perWinner, adminCut }) => {
-    statusText.textContent = `Round resolved. Winners: ${winningTeam.join(', ')} (+${perWinner} each). Admin +${adminCut}`;
-    loadWallet();
+    statusDiv.textContent = `Round resolved. Winners: ${winningTeam.join(', ')} (+${perWinner})`;
+    updateWalletDisplay();
   });
-  socket.on('logMessage', ({ message }) => { statusText.textContent = message; });
-  socket.on('errorMessage', ({ message }) => { alert('Error: '+message); });
+
+  socket.on('logMessage', ({ message }) => statusDiv.textContent = message);
+  socket.on('errorMessage', ({ message }) => alert('Error: '+message));
 
   createBtn.onclick = () => {
-    const code = prompt('Room code (blank = auto):');
-    socket.emit('createRoom', { roomCode: code || undefined, username: myName });
+    const code = prompt('Room code (blank = auto):') || undefined;
+    socket.emit('createRoom', { roomCode: code, username });
   };
+
   joinBtn.onclick = () => {
     const code = prompt('Enter room code:');
     if (!code) return;
-    socket.emit('joinRoom', { roomCode: code.toUpperCase(), username: myName });
+    socket.emit('joinRoom', { roomCode: code.toUpperCase(), username });
   };
-  startBtn.onclick = () => {
-    const code = prompt('Enter room code to start:');
-    if (!code) return;
-    socket.emit('startGame', code.toUpperCase());
+
+  startGameBtn.onclick = () => {
+    if (!currentRoom) return alert('Join or create a room first.');
+    socket.emit('startGame', currentRoom);
   };
-  bidBtn.onclick = () => {
-    const room = prompt('Room code:'); if (!room) return;
-    const teamRaw = prompt('Enter bidding team (comma separated usernames):'); if (!teamRaw) return;
-    const team = teamRaw.split(',').map(s => s.trim());
-    const bid = prompt('Enter total bid amount:'); if (!bid || isNaN(bid)) return alert('Invalid bid');
-    socket.emit('startBid', { roomCode: room.toUpperCase(), biddingTeam: team, bidAmount: Number(bid) });
+
+  startBidBtn.onclick = async () => {
+    if (!currentRoom) return alert('Join or create a room first.');
+    const teamRaw = prompt('Enter bidding team usernames (comma separated):', username);
+    if (!teamRaw) return;
+    const biddingTeam = teamRaw.split(',').map(s => s.trim()).filter(Boolean);
+    const bidAmount = Number(prompt('Enter total bid amount (numeric):', '10'));
+    if (!bidAmount || isNaN(bidAmount)) return alert('Invalid amount');
+    socket.emit('startBid', { roomCode: currentRoom, biddingTeam, bidAmount });
   };
-  resolveBtn.onclick = () => {
-    const room = prompt('Room code:'); if (!room) return;
-    const winnersRaw = prompt('Enter winning players (comma separated):'); if (!winnersRaw) return;
-    const winners = winnersRaw.split(',').map(s => s.trim());
-    socket.emit('resolveRound', { roomCode: room.toUpperCase(), winningTeam: winners });
+
+  resolveBtn.onclick = async () => {
+    if (!currentRoom) return alert('Join or create a room first.');
+    const winnersRaw = prompt('Enter winning team usernames (comma separated):');
+    if (!winnersRaw) return;
+    const winners = winnersRaw.split(',').map(s => s.trim()).filter(Boolean);
+    socket.emit('resolveRound', { roomCode: currentRoom, winningTeam: winners });
   };
-  leaveBtn.onclick = () => { location.href = '/'; };
+
+  leaveBtn.onclick = () => {
+    location.href = '/';
+  };
 
   function renderHand(cards){
     handDiv.innerHTML = '';
@@ -114,8 +147,8 @@
       el.className = 'card';
       el.innerText = c;
       el.onclick = () => {
-        const room = prompt('Enter room code to play in:'); if (!room) return;
-        socket.emit('playCard', { roomCode: room.toUpperCase(), card: c });
+        if (!currentRoom) return alert('Join a room first to play a card.');
+        socket.emit('playCard', { roomCode: currentRoom, card: c });
         el.style.opacity = '0.4';
         try { flipSound.currentTime = 0; flipSound.play(); } catch(e){}
       };
@@ -123,4 +156,13 @@
     });
   }
 
+  async function updateWalletDisplay(){
+    try {
+      const res = await fetch(`/api/wallet/${username}`);
+      const d = await res.json();
+      walletCoinsSpan.textContent = d.coins ?? 0;
+    } catch (e) {
+      walletCoinsSpan.textContent = '0';
+    }
+  }
 })();

@@ -1,11 +1,9 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const transactionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['add', 'deduct', 'win', 'commission'], required: true },
-  coins: { type: Number, required: true },
-  note: { type: String },
-  createdAt: { type: Date, default: Date.now }
+const WalletSchema = new Schema({
+  username: { type: String, required: true, unique: true },
+  coins: { type: Number, default: 100 }
 });
 
-module.exports = mongoose.model('Transaction', transactionSchema);
+module.exports = mongoose.model("Wallet", WalletSchema);

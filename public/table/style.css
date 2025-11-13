@@ -1,0 +1,111 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Rajdhani', sans-serif;
+  background: radial-gradient(circle at center, #004400, #001900);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#table {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: url('../assets/table-bg.png') center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #fff;
+  text-align: center;
+  width: 120px;
+}
+
+.player .avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid #ffcc00;
+  box-shadow: 0 0 20px #ffcc00;
+}
+
+.name {
+  font-family: 'Orbitron', sans-serif;
+  color: #ffcc00;
+  margin-top: 5px;
+}
+
+.coins {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+#player1 { bottom: 30px; left: 50%; transform: translateX(-50%); }
+#player2 { top: 30px; left: 50%; transform: translateX(-50%); }
+#player3 { left: 40px; top: 50%; transform: translateY(-50%); }
+#player4 { right: 40px; top: 50%; transform: translateY(-50%); }
+
+.center-area {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffcc00;
+  text-shadow: 0 0 10px #ffcc00;
+}
+
+#card-deck {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.card {
+  width: 60px;
+  height: 80px;
+  background: url('../assets/card-back.png') center/cover no-repeat;
+  border-radius: 10px;
+  transform-style: preserve-3d;
+  transition: transform 0.8s;
+}
+
+.card.flip {
+  transform: rotateY(180deg);
+}
+
+#dealBtn {
+  background: linear-gradient(45deg, #ff8c00, #ffcc00);
+  border: none;
+  padding: 10px 25px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #000;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: 0.3s;
+}
+
+#dealBtn:hover {
+  box-shadow: 0 0 20px #ffcc00;
+  transform: scale(1.1);
+}
+
+#status {
+  font-size: 1rem;
+  color: #fff;
+  margin-top: 10px;
+}

@@ -1,50 +1,65 @@
-const socket = io();
-const cardDeck = document.getElementById("card-deck");
-const cardSound = document.getElementById("cardSound");
-const statusText = document.getElementById("status");
+document.addEventListener("DOMContentLoaded", async () => {
+  const walletSpan = document.getElementById("coins");
+  const statusText = document.getElementById("status-text");
+  const startBtn = document.getElementById("start-btn");
+  const bidBtn = document.getElementById("bid-btn");
+  const exitBtn = document.getElementById("exit-btn");
 
-function dealCards() {
-  statusText.textContent = "Dealing Cards...";
-  cardDeck.innerHTML = "";
-
-  for (let i = 0; i < 8; i++) {
-    const card = document.createElement("div");
-    card.classList.add("card");
-    cardDeck.appendChild(card);
-
-    setTimeout(() => {
-      card.classList.add("flip");
-      cardSound.play();
-    }, i * 300);
-  }
-
-  setTimeout(() => {
-    statusText.textContent = "Cards Dealt! Let's Play 🎮";
-  }, 3500);
-}
-
-// Avatar change system
-document.getElementById("myAvatar").addEventListener("click", async () => {
-  const file = await selectFile();
-  if (file) {
-    const url = URL.createObjectURL(file);
-    document.getElementById("myAvatar").src = url;
-  }
-});
-
-function selectFile() {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = (e) => resolve(e.target.files[0]);
-    input.click();
+  // 🧩 Fullscreen mode on first interaction
+  document.body.addEventListener("click", async () => {
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      } else if (document.documentElement.webkitRequestFullscreen) {
+        await document.documentElement.webkitRequestFullscreen();
+      }
+    } catch (err) {
+      console.log("⚠️ Fullscreen not supported:", err);
+    }
   });
-}
 
-// On page load, set name
-const params = new URLSearchParams(window.location.search);
-const guestName = params.get("guest");
-const username = localStorage.getItem("username") || guestName || "Player";
+  // 🧩 Try to lock orientation
+  if (screen.orientation && screen.orientation.lock) {
+    try {
+      await screen.orientation.lock("landscape");
+      console.log("✅ Landscape locked");
+    } catch {
+      console.log("⚠️ Orientation lock not available");
+    }
+  }
 
-document.getElementById("myName").textContent = username;
+  // 🧩 Load wallet coins
+  const token = localStorage.getItem("token");
+  if (token) {
+    try {
+      const res = await fetch("/api/wallet", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data && data.coins !== undefined) {
+        walletSpan.textContent = data.coins;
+      }
+    } catch (err) {
+      console.log("Wallet fetch failed:", err);
+    }
+  }
+
+  // 🎮 Button Actions
+  startBtn.addEventListener("click", () => {
+    statusText.textContent = "Game Started! Waiting for moves...";
+    startBtn.disabled = true;
+  });
+
+  bidBtn.addEventListener("click", () => {
+    const bid = prompt("Enter your bid amount:");
+    if (bid && !isNaN(bid)) {
+      statusText.textContent = `Bid placed: ${bid} coins`;
+    }
+  });
+
+  exitBtn.addEventListener("click", () => {
+    if (confirm("Exit game?")) {
+      window.location.href = "/index.html";
+    }
+  });
+});

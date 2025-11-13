@@ -1,107 +1,17 @@
-/* ✅ Reset */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #0b132b;
-  color: #fff;
-  font-family: 'Poppins', sans-serif;
-}
-
-/* ✅ Center Game Container */
-#game-container {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-/* ✅ Game Table */
-#table {
-  background: radial-gradient(circle at center, #1c2541, #0b132b);
-  border-radius: 50%;
-  width: 80vmin;
-  height: 80vmin;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 0 25px rgba(0,0,0,0.6);
-  border: 3px solid rgba(255,255,255,0.2);
-}
-
-/* ✅ Wallet Info (Top-right) */
-#wallet-info {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
-  padding: 0.6rem 1rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  z-index: 1000;
-  backdrop-filter: blur(8px);
-}
-
-/* ✅ Rotate Message (Portrait only) */
-#rotate-message {
-  display: none;
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: #000;
-  color: #fff;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  font-size: 1.3rem;
-  z-index: 9999;
-}
-
-/* ✅ Bottom Bar */
-#bottom-bar {
-  position: fixed;
-  bottom: 1.2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 1rem;
-  z-index: 1000;
-}
-
-#bottom-bar button {
-  background: linear-gradient(135deg, #0077b6, #00b4d8);
-  border: none;
-  color: #fff;
-  padding: 0.8rem 1.6rem;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-  transition: all 0.3s ease;
-}
-
-#bottom-bar button:hover {
-  transform: scale(1.05);
-  background: linear-gradient(135deg, #00b4d8, #90e0ef);
-}
-
-/* ✅ Portrait Mode */
-@media screen and (orientation: portrait) {
-  #rotate-message {
-    display: flex;
-  }
-  #game-container, #bottom-bar, #wallet-info {
-    display: none;
-  }
+/* public/table/style.css */
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0b132b;color:#fff;font-family:Arial, sans-serif}
+#rotate-message{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;color:#fff;align-items:center;justify-content:center;text-align:center;font-size:1.2rem;z-index:9999}
+#wallet-info{position:fixed;top:12px;right:12px;background:rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;z-index:1000}
+#game-container{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#table{background:radial-gradient(circle at center,#1c2541,#0b132b);border-radius:50%;width:80vmin;height:80vmin;display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,0.06)}
+#players-list{position:relative;margin:8px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#players-list .p{background:rgba(0,0,0,0.25);padding:6px 10px;border-radius:10px}
+#status-text{margin-top:8px;color:#cfcfcf}
+.hand-container{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+.card{width:64px;height:92px;border-radius:8px;background:white;color:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;box-shadow:0 6px 12px rgba(0,0,0,0.2);cursor:pointer;user-select:none}
+#bottom-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:1000}
+#bottom-bar button{background:linear-gradient(135deg,#0077b6,#00b4d8);border:none;color:#fff;padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+@media screen and (orientation:portrait){
+  #rotate-message{display:flex}
+  #game-container,#bottom-bar,#wallet-info{display:none}
 }

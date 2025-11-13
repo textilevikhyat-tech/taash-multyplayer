@@ -1,142 +1,41 @@
+<!-- public/login.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — Tash Multiplayer Club</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rajdhani:wght@500&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Rajdhani', sans-serif;
-      background: radial-gradient(circle at center, #111, #000);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    .login-container {
-      background: rgba(0,0,0,0.8);
-      border: 2px solid #ffcc00;
-      border-radius: 15px;
-      padding: 40px;
-      text-align: center;
-      width: 320px;
-      box-shadow: 0 0 25px #ffcc00;
-    }
-
-    h2 {
-      font-family: 'Orbitron', sans-serif;
-      color: #ffcc00;
-      margin-bottom: 20px;
-      text-shadow: 0 0 15px #ffcc00;
-    }
-
-    input {
-      width: 85%;
-      padding: 12px;
-      margin: 10px 0;
-      border-radius: 10px;
-      border: none;
-      outline: none;
-      background: #222;
-      color: #fff;
-      font-size: 1rem;
-      text-align: center;
-    }
-
-    .btn {
-      width: 90%;
-      padding: 12px;
-      background: linear-gradient(45deg, #ff8c00, #ffcc00);
-      border: none;
-      border-radius: 25px;
-      color: #000;
-      font-weight: bold;
-      margin-top: 15px;
-      cursor: pointer;
-      text-transform: uppercase;
-      transition: all 0.3s;
-    }
-
-    .btn:hover {
-      background: linear-gradient(45deg, #ffcc00, #ff8c00);
-      box-shadow: 0 0 20px #ffcc00;
-      transform: scale(1.05);
-    }
-
-    .link {
-      display: block;
-      color: #ffcc00;
-      margin-top: 15px;
-      text-decoration: none;
-      font-size: 0.9rem;
-    }
-
-    .link:hover {
-      text-shadow: 0 0 10px #ffcc00;
-    }
-
-    .back {
-      margin-top: 20px;
-      font-size: 0.8rem;
-      color: #888;
-      cursor: pointer;
-    }
+    body{background:#0b132b;color:#fff;font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    .card{background:rgba(255,255,255,0.04);padding:26px;border-radius:12px;text-align:center;width:320px}
+    input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #333;background:#071126;color:#fff}
+    .btn{width:100%;padding:10px;border-radius:8px;border:none;background:#ffcc00;color:#000;font-weight:700;cursor:pointer;margin-top:8px}
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <h2>Login to Play</h2>
-    <input type="text" id="username" placeholder="Enter Username" />
-    <input type="password" id="password" placeholder="Enter Password" />
-    <button class="btn" onclick="loginUser()">Login</button>
-    <a href="#" class="link" onclick="registerUser()">Create Account</a>
-    <div class="back" onclick="window.location.href='/'">← Back to Main Menu</div>
+  <div class="card">
+    <h2>Login / Register</h2>
+    <input id="u" placeholder="username" />
+    <input id="p" placeholder="password" type="password" />
+    <button class="btn" onclick="login()">Login</button>
+    <button class="btn" onclick="register()">Register</button>
+    <p id="msg"></p>
   </div>
 
   <script>
-    async function loginUser() {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      if (!username || !password) return alert("Enter username & password");
-
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('username', data.username);
-        alert(`Welcome back, ${data.username}!`);
-        window.location.href = '/table.html';
-      } else {
-        alert(data.message || 'Login failed');
-      }
+    async function register(){
+      const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
+      if(!u||!p) return alert('Enter both');
+      const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+      const d=await res.json(); alert(d.message||d);
     }
-
-    async function registerUser() {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      if (!username || !password) return alert("Enter username & password");
-
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert("Registration successful! Please login now.");
-      } else {
-        alert(data.message || 'Registration failed');
-      }
+    async function login(){
+      const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
+      if(!u||!p) return alert('Enter both');
+      const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+      const d=await res.json();
+      if(res.ok){ localStorage.setItem('token', d.token); localStorage.setItem('username', d.username); alert('Login successful'); location.href='/table/table.html'; }
+      else alert(d.message||'Login failed');
     }
   </script>
 </body>

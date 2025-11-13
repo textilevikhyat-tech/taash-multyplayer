@@ -2,58 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>29 Tash Multiplayer</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tash Multiplayer</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>29 Tash Multiplayer Game</h1>
 
-  <!-- Auth Section -->
-  <div id="auth">
-    <h2>Register</h2>
-    <input type="text" id="reg-username" placeholder="Username" />
-    <input type="password" id="reg-password" placeholder="Password" />
-    <button onclick="register()">Register</button>
-
-    <h2>Login</h2>
-    <input type="text" id="login-username" placeholder="Username" />
-    <input type="password" id="login-password" placeholder="Password" />
-    <button onclick="login()">Login</button>
-
-    <p id="auth-message" class="msg"></p>
-  </div>
-
-  <!-- Dashboard Section -->
-  <div id="dashboard" style="display: none;">
-    <h2>Welcome, <span id="user-name"></span> 👋</h2>
-    <p>Coins: 💰 <span id="user-coins">0</span></p>
-
-    <div class="wallet">
-      <h3>Wallet Actions</h3>
-      <input type="number" id="coin-amount" placeholder="Amount" />
-      <button onclick="addCoins()">Add Coins</button>
-      <button onclick="deductCoins()">Deduct Coins</button>
+  <div id="gameArea">
+    <div id="table">
+      <div class="player top">🧑 Player 1</div>
+      <div class="player left">🧑 Player 2</div>
+      <div class="player right">🧑 Player 3</div>
+      <div class="player bottom">🧑 Player 4</div>
+      <div id="center">♠♥♦♣</div>
     </div>
 
-    <div class="room">
-      <h3>Game Room</h3>
-      <input type="text" id="room-name" placeholder="Room Name" />
-      <button onclick="joinGame()">Join Room</button>
-      <button onclick="startGame()">Start Game</button>
+    <div id="controls">
+      <div id="wallet">Coins: 0</div>
+      <input type="number" id="bidAmount" placeholder="Enter Bid Amount" />
+      <button id="startBidBtn">Start Bid</button>
     </div>
 
-    <!-- Game Log -->
-    <div id="game-log" class="log"></div>
-
-    <!-- Card Hand Display -->
-    <h4>Your Hand</h4>
-    <div id="hand" class="hand-container"></div>
-
-    <button onclick="logout()" class="logout">Logout</button>
+    <div id="hand"></div>
+    <div id="log"></div>
   </div>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="./app.js"></script>
+  <audio id="flipSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_f7a7f0b7b6.mp3?filename=card-flip.mp3"></audio>
+  <audio id="dealSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_8ac2a62be3.mp3?filename=card-deal-1.mp3"></audio>
+  <audio id="coinSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_0ebc25287a.mp3?filename=coin-drop.mp3"></audio>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -1,38 +1,35 @@
+<!-- public/table/table.html -->
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🃏 Game Table</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Game Table</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="rotate-message">📱 कृपया फ़ोन को लैंडस्केप मोड में घुमाएँ ताकि गेम बेहतर दिखे!</div>
+  <div id="wallet-info">Coins: <span id="coins">0</span></div>
 
-  <!-- 📱 Rotate Message -->
-  <div id="rotate-message">
-    📱 कृपया फ़ोन को लैंडस्केप मोड में घुमाएँ ताकि गेम बेहतर दिखे!
-  </div>
-
-  <!-- 💰 Wallet Info -->
-  <div id="wallet-info">
-    Coins: <span id="coins">0</span>
-  </div>
-
-  <!-- 🎮 Game Container -->
   <div id="game-container">
     <div id="table">
       <h2>🃏 Game Table</h2>
-      <p id="status-text">Waiting for players...</p>
+      <div id="players-list"></div>
+      <div id="status-text">Waiting...</div>
+      <div id="hand" class="hand-container"></div>
     </div>
   </div>
 
-  <!-- 🎯 Bottom Action Bar -->
   <div id="bottom-bar">
-    <button id="start-btn">🎮 Start Game</button>
-    <button id="bid-btn">💰 Place Bid</button>
-    <button id="exit-btn">🚪 Exit</button>
+    <button id="create-room">Create Room</button>
+    <button id="join-room">Join Room</button>
+    <button id="start-game">Start Game</button>
+    <button id="place-bid">Place Bid</button>
+    <button id="resolve-round">Resolve Round</button>
+    <button id="leave-room">Leave</button>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

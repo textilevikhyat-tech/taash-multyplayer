@@ -1,4 +1,4 @@
-// server.js (FINAL - includes startBid, resolveRound, admin init)
+// server.js (FINAL - with /public static frontend)
 const mongoose = require('mongoose');
 const express = require('express');
 const http = require('http');
@@ -6,14 +6,18 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 
 // Models
-const Wallet = require('./transaction'); // ensure transaction.js exists (model with isAdmin flag)
+const Wallet = require('./transaction'); // Ensure transaction.js exists (wallet schema with isAdmin flag)
 
 // Express app
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ✅ Serve static frontend (like index.html, game UI)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
 const mongoURI = "mongodb+srv://textilevikhyat_db_user:005WZZly6iIDC8KQ@tash-multyplayer.pntqggs.mongodb.net/tash_multiplayer_db?retryWrites=true&w=majority";
@@ -25,7 +29,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   })
   .catch(err => console.log("❌ MongoDB Connection Error:", err));
 
-// Ensure admin wallet exists (create if missing)
+// Ensure admin wallet exists
 async function ensureAdminWallet() {
   try {
     const existing = await Wallet.findOne({ isAdmin: true });
@@ -42,12 +46,12 @@ async function ensureAdminWallet() {
 }
 
 // JWT secret
-const JWT_SECRET = "your_jwt_secret_here"; // Change in production
+const JWT_SECRET = "your_jwt_secret_here"; // change for production
 
-// In-memory Users (temporary — you can move to DB later)
+// In-memory Users
 const users = [];
 
-// --- AUTH ROUTES (simple in-memory users) ---
+// --- AUTH ROUTES ---
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ message: "Missing username/password" });
@@ -142,7 +146,7 @@ io.on('connection', (socket) => {
     io.to(room).emit('roomUpdate', { room, players, creatorId: state.roomCreators[room] });
   });
 
-  // ✅ startBid (with coin-check & deduct)
+  // ✅ startBid
   socket.on('startBid', async (data) => {
     try {
       const { room, biddingTeam, bidAmount } = data;
@@ -153,7 +157,6 @@ io.on('connection', (socket) => {
 
       const perPlayer = Number(bidAmount) / 2;
 
-      // Step 1: Check each player's wallet
       const insufficient = [];
       const playerWallets = [];
       for (const uname of biddingTeam) {
@@ -165,26 +168,23 @@ io.on('connection', (socket) => {
 
       if (insufficient.length > 0) {
         socket.emit('errorMessage', {
-          message: `Bid rejected! These players don't have enough coins: ${insufficient.join(', ')}`
+          message: `Bid rejected! Insufficient coins: ${insufficient.join(', ')}`
         });
         io.to(room).emit('logMessage', {
-          message: `⚠️ Bid cancelled — insufficient coins for: ${insufficient.join(', ')}`
+          message: `⚠️ Bid cancelled — insufficient coins: ${insufficient.join(', ')}`
         });
         return;
       }
 
-      // Step 2: Deduct per player
       for (const w of playerWallets) {
         w.coins -= perPlayer;
         await w.save();
         io.to(room).emit('walletUpdate', { username: w.username, coins: w.coins });
       }
 
-      // Step 3: Save active bid
       io.serverState.rooms[room] = io.serverState.rooms[room] || {};
       io.serverState.rooms[room].currentBid = { biddingTeam, bidAmount };
 
-      // Notify
       io.to(room).emit('bidStarted', { biddingTeam, bidAmount });
       console.log(`✅ Bid started in ${room}: ${bidAmount} by ${biddingTeam.join(', ')}`);
     } catch (err) {
@@ -193,36 +193,25 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ✅ resolveRound (payouts + admin cut)
+  // ✅ resolveRound
   socket.on('resolveRound', async (data) => {
     try {
       const { room, winningTeam } = data;
-      if (!room || !Array.isArray(winningTeam)) {
-        socket.emit('errorMessage', { message: 'Invalid resolveRound data' });
-        return;
-      }
-
       const roomState = io.serverState.rooms[room];
-      if (!roomState || !roomState.currentBid) {
-        socket.emit('errorMessage', { message: 'No active bid for this room' });
-        return;
-      }
+      if (!roomState || !roomState.currentBid) return;
 
       const { biddingTeam, bidAmount } = roomState.currentBid;
       const totalBid = Number(bidAmount);
-      const adminCut = totalBid * 0.2; // 20%
-      const winnerShareTotal = totalBid * 0.8; // 80%
+      const adminCut = totalBid * 0.2;
+      const winnerShareTotal = totalBid * 0.8;
       const perWinner = winnerShareTotal / (winningTeam.length || 1);
 
-      // Credit winners
       for (const uname of winningTeam) {
         const w = await Wallet.findOne({ username: uname });
         if (!w) {
-          // if wallet missing, create one (safe-guard)
-          const nw = new Wallet({ username: uname });
-          nw.coins += perWinner;
+          const nw = new Wallet({ username: uname, coins: perWinner });
           await nw.save();
-          io.to(room).emit('walletUpdate', { username: nw.username, coins: nw.coins });
+          io.to(room).emit('walletUpdate', { username: uname, coins: perWinner });
         } else {
           w.coins += perWinner;
           await w.save();
@@ -230,52 +219,18 @@ io.on('connection', (socket) => {
         }
       }
 
-      // Credit admin
       const adminWallet = await Wallet.findOne({ isAdmin: true });
       if (adminWallet) {
         adminWallet.coins += adminCut;
         await adminWallet.save();
-        // notify admin (and also room maybe)
-        io.to(room).emit('walletUpdate', { username: adminWallet.username, coins: adminWallet.coins });
-      } else {
-        console.warn('Admin wallet not found for payout');
       }
 
-      // Clear current bid
       io.serverState.rooms[room].currentBid = null;
-
-      // Emit roundResolved with details
       io.to(room).emit('roundResolved', { winningTeam, perWinner, adminCut });
-      console.log(`🏁 Round resolved in ${room}. Winners: ${winningTeam.join(', ')}. Each winner +${perWinner}. Admin +${adminCut}`);
+      console.log(`🏁 Round resolved in ${room}. Winners: ${winningTeam.join(', ')}`);
     } catch (err) {
       console.error('resolveRound error', err);
-      socket.emit('errorMessage', { message: 'Failed to resolve round' });
     }
-  });
-
-  // --- GAME START ---
-  socket.on('startGame', (room) => {
-    const state = io.serverState;
-    if (state.roomCreators[room] !== socket.id) {
-      socket.emit('errorMessage', { message: "Only creator can start the game" });
-      return;
-    }
-
-    const sockets = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    const maxPlayers = Math.min(4, sockets.length);
-
-    const deck = shuffle(createDeck());
-    const hands = {};
-    for (let i = 0; i < maxPlayers; i++) {
-      hands[sockets[i]] = deck.slice(i * 8, (i + 1) * 8);
-    }
-
-    io.to(room).emit('gameStarted', { hands });
-  });
-
-  // --- PLAY CARD ---
-  socket.on('playCard', ({ room, card, username }) => {
-    io.to(room).emit('cardPlayed', { username, card });
   });
 
   socket.on('disconnect', () => {
@@ -291,7 +246,6 @@ function createDeck() {
   suits.forEach(s => ranks.forEach(r => deck.push({ suit: s, rank: r })));
   return deck;
 }
-
 function shuffle(deck) {
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -300,7 +254,7 @@ function shuffle(deck) {
   return deck;
 }
 
-app.get('/', (req, res) => res.send("🚀 Server running"));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));

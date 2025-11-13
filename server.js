@@ -1,4 +1,4 @@
-// ✅ server.js (FINAL PRODUCTION READY)
+// server.js (FINAL - ready)
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -8,18 +8,16 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 
-// --- Models ---
-const Wallet = require('./models/Transaction'); // make sure file name is Transaction.js in /models/
+// models
+const Wallet = require('./models/Transaction');
 
-// --- App Setup ---
+// app setup
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// ✅ Serve frontend (index.html, login, guest, table/)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- MongoDB Connection ---
+// mongo URI - replace/password encoded as needed
 const mongoURI = "mongodb+srv://textilevikhyat_db_user:005WZZly6iIDC8KQ@tash-multyplayer.pntqggs.mongodb.net/tash_multiplayer_db?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -27,189 +25,216 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     console.log("✅ MongoDB Connected");
     await ensureAdminWallet();
   })
-  .catch(err => console.log("❌ MongoDB Error:", err));
+  .catch(err => console.log("❌ MongoDB Connection Error:", err));
 
-// --- Ensure Admin Wallet Exists ---
 async function ensureAdminWallet() {
   try {
-    const existing = await Wallet.findOne({ isAdmin: true });
-    if (!existing) {
+    const ex = await Wallet.findOne({ isAdmin: true });
+    if (!ex) {
       const admin = new Wallet({ username: 'admin', coins: 0, isAdmin: true });
       await admin.save();
       console.log('✅ Admin wallet created');
-    } else {
-      console.log('✅ Admin wallet exists');
-    }
+    } else console.log('✅ Admin wallet exists');
   } catch (err) {
-    console.error('Admin init error:', err);
+    console.error('Admin init error:', err.message);
   }
 }
 
-// --- JWT SECRET ---
-const JWT_SECRET = "your_jwt_secret_here";
+// JWT secret (change in production)
+const JWT_SECRET = "super_secret_change_me";
 
-// --- TEMP USER STORAGE (you can move to Mongo later) ---
-const users = [];
+// Simple in-memory users (replace with DB later)
+const users = []; // { username, password(hashed) }
 
-// --- AUTH ROUTES ---
+// AUTH routes
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ message: "Missing username/password" });
-
-  const existing = users.find(u => u.username === username);
-  if (existing)
-    return res.status(400).json({ message: "Username already exists" });
+  if (!username || !password) return res.status(400).json({ message: "Missing fields" });
+  if (users.find(u => u.username === username)) return res.status(400).json({ message: "Username exists" });
 
   const hashed = await bcrypt.hash(password, 10);
-  const newUser = { username, password: hashed };
-  users.push(newUser);
-
+  users.push({ username, password: hashed });
   try {
-    const wallet = new Wallet({ username });
-    await wallet.save();
+    await Wallet.create({ username });
   } catch (err) {
-    console.log('Wallet create error:', err.message);
+    // ignore duplicate wallet error
   }
-
-  res.json({ message: "Registered successfully" });
+  res.json({ message: "Registered" });
 });
 
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   const user = users.find(u => u.username === username);
   if (!user) return res.status(400).json({ message: "User not found" });
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(400).json({ message: "Invalid password" });
-
-  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "1d" });
+  const ok = await bcrypt.compare(password, user.password);
+  if (!ok) return res.status(400).json({ message: "Invalid password" });
+  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1d' });
   res.json({ token, username });
 });
 
-// --- WALLET ROUTES ---
+// Wallet endpoints
 app.get('/api/wallet', async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ message: "No token" });
   try {
-    const decoded = jwt.verify(auth.split(' ')[1], JWT_SECRET);
-    const wallet = await Wallet.findOne({ username: decoded.username });
-    res.json({ coins: wallet?.coins || 0 });
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
+    const token = auth.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const w = await Wallet.findOne({ username: decoded.username });
+    return res.json({ coins: w?.coins ?? 0 });
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
   }
 });
 
-// --- SOCKET.IO SETUP ---
+// server + socket
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
-io.serverState = { roomCreators: {}, rooms: {} };
+
+// server state
+io.serverState = io.serverState || { rooms: {} }; // rooms: { roomCode: { currentBid, creatorId } }
 
 io.on('connection', (socket) => {
-  console.log('🟢 Player connected:', socket.id);
+  console.log('🟢 connected', socket.id);
 
-  // Join Room
-  socket.on('joinRoom', ({ room, username }) => {
-    if (!room) return socket.emit('errorMessage', { message: "Room missing" });
-    socket.join(room);
-    socket.data.username = username;
-
-    if (!io.serverState.roomCreators[room])
-      io.serverState.roomCreators[room] = socket.id;
-
-    const sockets = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    const players = sockets.map(id => ({
-      id,
-      username: io.sockets.sockets.get(id).data.username
-    }));
-
-    io.to(room).emit('roomUpdate', {
-      room,
-      players,
-      creatorId: io.serverState.roomCreators[room]
-    });
+  socket.on('createRoom', ({ roomCode, username }) => {
+    if (!roomCode) roomCode = Math.random().toString(36).slice(2,8).toUpperCase();
+    socket.join(roomCode);
+    socket.data.username = username || `Guest_${socket.id.slice(0,4)}`;
+    io.serverState.rooms[roomCode] = io.serverState.rooms[roomCode] || {};
+    io.serverState.rooms[roomCode].creatorId = io.serverState.rooms[roomCode].creatorId || socket.id;
+    emitRoomUpdate(roomCode);
+    socket.emit('roomCreated', { roomCode });
+    console.log(`${socket.data.username} created/joined ${roomCode}`);
   });
 
-  // ✅ startBid
-  socket.on('startBid', async (data) => {
-    try {
-      const { room, biddingTeam, bidAmount } = data;
-      if (!room || !Array.isArray(biddingTeam) || !bidAmount)
-        return socket.emit('errorMessage', { message: 'Invalid bid data' });
+  socket.on('joinRoom', ({ roomCode, username }) => {
+    if (!roomCode) return socket.emit('errorMessage', { message: "Room code required" });
+    socket.join(roomCode);
+    socket.data.username = username || `Guest_${socket.id.slice(0,4)}`;
+    io.serverState.rooms[roomCode] = io.serverState.rooms[roomCode] || {};
+    io.serverState.rooms[roomCode].creatorId = io.serverState.rooms[roomCode].creatorId || socket.id;
+    emitRoomUpdate(roomCode);
+    socket.emit('joinedRoom', { roomCode });
+    console.log(`${socket.data.username} joined ${roomCode}`);
+  });
 
-      const perPlayer = Number(bidAmount) / 2;
+  socket.on('startGame', (roomCode) => {
+    const sockets = Array.from(io.sockets.adapter.rooms.get(roomCode) || []);
+    if (!sockets.length) return socket.emit('errorMessage', { message: "No players in room" });
+    const deck = shuffle(createDeck());
+    const maxPlayers = Math.min(4, sockets.length);
+    const hands = {};
+    for (let i=0;i<maxPlayers;i++){
+      hands[sockets[i]] = deck.slice(i*8,(i+1)*8).map(c => `${c.rank}${c.suit}`);
+    }
+    io.to(roomCode).emit('gameStarted', { hands });
+    console.log('Game started in', roomCode);
+  });
+
+  socket.on('playCard', ({ roomCode, card }) => {
+    socket.to(roomCode).emit('cardPlayed', { username: socket.data.username, card });
+  });
+
+  // startBid - server verifies coins and deducts per-player share
+  socket.on('startBid', async ({ roomCode, biddingTeam, bidAmount }) => {
+    try {
+      if (!roomCode || !Array.isArray(biddingTeam) || !bidAmount) {
+        return socket.emit('errorMessage', { message: "Invalid bid data" });
+      }
+      const perPlayer = Number(bidAmount)/2;
       const insufficient = [];
       const playerWallets = [];
-
       for (const uname of biddingTeam) {
         const w = await Wallet.findOne({ username: uname });
-        if (!w) insufficient.push(uname + ' (no wallet)');
-        else if (w.coins < perPlayer) insufficient.push(uname + ' (not enough coins)');
+        if (!w) insufficient.push(`${uname} (no wallet)`);
+        else if (w.coins < perPlayer) insufficient.push(`${uname} (not enough)`);
         else playerWallets.push(w);
       }
-
-      if (insufficient.length > 0) {
-        io.to(room).emit('logMessage', { message: `⚠️ Bid cancelled — insufficient coins: ${insufficient.join(', ')}` });
+      if (insufficient.length) {
+        io.to(roomCode).emit('logMessage', { message: `Bid cancelled: ${insufficient.join(', ')}` });
         return;
       }
-
       for (const w of playerWallets) {
         w.coins -= perPlayer;
         await w.save();
-        io.to(room).emit('walletUpdate', { username: w.username, coins: w.coins });
+        io.to(roomCode).emit('walletUpdate', { username: w.username, coins: w.coins });
       }
-
-      io.serverState.rooms[room] = io.serverState.rooms[room] || {};
-      io.serverState.rooms[room].currentBid = { biddingTeam, bidAmount };
-
-      io.to(room).emit('bidStarted', { biddingTeam, bidAmount });
-      console.log(`✅ Bid started: ${bidAmount} by ${biddingTeam.join(', ')}`);
+      io.serverState.rooms[roomCode] = io.serverState.rooms[roomCode] || {};
+      io.serverState.rooms[roomCode].currentBid = { biddingTeam, bidAmount };
+      io.to(roomCode).emit('bidStarted', { biddingTeam, bidAmount });
+      console.log('Bid started', roomCode, bidAmount, biddingTeam);
     } catch (err) {
-      console.error('startBid error', err);
+      console.error('startBid err', err);
+      socket.emit('errorMessage', { message: "startBid failed" });
     }
   });
 
-  // ✅ resolveRound (Winners + Admin share)
-  socket.on('resolveRound', async ({ room, winningTeam }) => {
+  // resolveRound - creator (or any) triggers resolution & payouts
+  socket.on('resolveRound', async ({ roomCode, winningTeam }) => {
     try {
-      const roomState = io.serverState.rooms[room];
-      if (!roomState?.currentBid) return;
-
-      const { biddingTeam, bidAmount } = roomState.currentBid;
+      const room = io.serverState.rooms[roomCode];
+      if (!room || !room.currentBid) return socket.emit('errorMessage', { message: "No active bid" });
+      const { bidAmount } = room.currentBid;
       const total = Number(bidAmount);
       const adminCut = total * 0.2;
-      const winnerShare = total * 0.8;
-      const perWinner = winnerShare / winningTeam.length;
+      const winnerTotal = total * 0.8;
+      const perWinner = winnerTotal / (winningTeam.length||1);
 
       for (const uname of winningTeam) {
         let w = await Wallet.findOne({ username: uname });
-        if (!w) w = new Wallet({ username: uname, coins: 0 });
+        if (!w) {
+          w = new Wallet({ username: uname, coins: 0 });
+        }
         w.coins += perWinner;
         await w.save();
-        io.to(room).emit('walletUpdate', { username: uname, coins: w.coins });
+        io.to(roomCode).emit('walletUpdate', { username: uname, coins: w.coins });
       }
 
-      const admin = await Wallet.findOne({ isAdmin: true });
-      if (admin) {
-        admin.coins += adminCut;
-        await admin.save();
+      const adminW = await Wallet.findOne({ isAdmin: true });
+      if (adminW) {
+        adminW.coins += adminCut;
+        await adminW.save();
       }
 
-      io.serverState.rooms[room].currentBid = null;
-      io.to(room).emit('roundResolved', { winningTeam, perWinner, adminCut });
-      console.log(`🏁 Round resolved: ${winningTeam.join(', ')} won`);
+      io.serverState.rooms[roomCode].currentBid = null;
+      io.to(roomCode).emit('roundResolved', { winningTeam, perWinner, adminCut });
+      console.log('Round resolved', roomCode, winningTeam);
     } catch (err) {
-      console.error('resolveRound error', err);
+      console.error('resolveRound err', err);
+      socket.emit('errorMessage', { message: "resolve failed" });
     }
   });
 
-  socket.on('disconnect', () => console.log('🔴 Player disconnected:', socket.id));
+  socket.on('disconnecting', () => {
+    // optionally handle leave
+  });
+
+  function emitRoomUpdate(roomCode) {
+    const sockets = Array.from(io.sockets.adapter.rooms.get(roomCode) || []);
+    const players = sockets.map(id => ({ id, username: io.sockets.sockets.get(id).data.username }));
+    io.to(roomCode).emit('roomUpdate', { roomCode, players, creatorId: io.serverState.rooms[roomCode]?.creatorId });
+  }
 });
 
-// --- FRONTEND ENTRYPOINT (index.html) ---
-app.get('/', (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'index.html'))
-);
+// helpers - deck
+function createDeck(){
+  const suits = ['♠','♥','♦','♣'];
+  const ranks = ['9','10','J','Q','K','A'];
+  const deck=[];
+  suits.forEach(s => ranks.forEach(r => deck.push({ suit: s, rank: r })));
+  return deck;
+}
+function shuffle(deck){
+  for(let i=deck.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [deck[i],deck[j]]=[deck[j],deck[i]];
+  }
+  return deck;
+}
 
+// serve index
+app.get('/', (req,res) => res.sendFile(path.join(__dirname,'public','index.html')));
+
+// start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));
+server.listen(PORT, ()=> console.log(`🌍 Server running on ${PORT}`));

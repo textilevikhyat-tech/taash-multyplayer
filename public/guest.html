@@ -1,29 +1,32 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Guest</title>
 <style>
-  body{background:#071126;color:#fff;font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-  .box{padding:20px;background:rgba(255,255,255,0.03);border-radius:12px;text-align:center}
-  .btn{padding:10px 18px;border-radius:8px;border:none;background:#ffcc00;color:#000;cursor:pointer;margin:6px}
+body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#071126,#001f3f);color:#fff;font-family:Arial}
+.box{background:rgba(255,255,255,0.03);padding:22px;border-radius:10px;text-align:center}
+button{padding:10px 14px;border-radius:8px;border:none;background:#ffcc33;color:#000;font-weight:700;cursor:pointer;margin-top:10px}
 </style>
 </head>
 <body>
-  <div class="box">
-    <h2>Guest Mode</h2>
-    <button class="btn" onclick="joinRandom()">Join Random</button>
-    <button class="btn" onclick="createPrivate()">Create Private</button>
-  </div>
+<div class="box">
+  <h2>Guest Play</h2>
+  <button onclick="joinRandom()">Join Random Table</button>
+  <button onclick="createRoom()">Create Private Room</button>
+</div>
+
 <script>
 function joinRandom(){
-  const name='Guest'+Math.floor(Math.random()*10000);
-  location.href='/table/table.html?guest='+encodeURIComponent(name);
+  const name = 'Guest' + Math.floor(Math.random()*10000);
+  sessionStorage.setItem('guestName', name);
+  location.href = '/table/table.html';
 }
-function createPrivate(){
-  const code=Math.random().toString(36).slice(2,8).toUpperCase();
-  location.href='/table/table.html?room='+code+'&guest=true';
+function createRoom(){
+  const name = 'Guest' + Math.floor(Math.random()*10000);
+  sessionStorage.setItem('guestName', name);
+  const code = prompt('Enter room code (or leave blank for auto):') || '';
+  location.href = '/table/table.html?room=' + encodeURIComponent(code);
 }
 </script>
 </body>

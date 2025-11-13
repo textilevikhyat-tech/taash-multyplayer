@@ -1,15 +1,14 @@
-<!-- public/guest.html -->
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Guest</title>
-  <style>
-    body{background:#071126;color:#fff;font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-    .box{padding:20px;background:rgba(255,255,255,0.03);border-radius:12px;text-align:center}
-    .btn{padding:10px 18px;border-radius:8px;border:none;background:#ffcc00;color:#000;cursor:pointer;margin:6px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Guest</title>
+<style>
+  body{background:#071126;color:#fff;font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .box{padding:20px;background:rgba(255,255,255,0.03);border-radius:12px;text-align:center}
+  .btn{padding:10px 18px;border-radius:8px;border:none;background:#ffcc00;color:#000;cursor:pointer;margin:6px}
+</style>
 </head>
 <body>
   <div class="box">
@@ -17,17 +16,15 @@
     <button class="btn" onclick="joinRandom()">Join Random</button>
     <button class="btn" onclick="createPrivate()">Create Private</button>
   </div>
-
-  <script>
-    function joinRandom(){
-      const name='Guest'+Math.floor(Math.random()*10000);
-      // redirect to table with guest param
-      location.href='/table/table.html?guest='+encodeURIComponent(name);
-    }
-    function createPrivate(){
-      const code=Math.random().toString(36).slice(2,8).toUpperCase();
-      location.href='/table/table.html?room='+code+'&guest=true';
-    }
-  </script>
+<script>
+function joinRandom(){
+  const name='Guest'+Math.floor(Math.random()*10000);
+  location.href='/table/table.html?guest='+encodeURIComponent(name);
+}
+function createPrivate(){
+  const code=Math.random().toString(36).slice(2,8).toUpperCase();
+  location.href='/table/table.html?room='+code+'&guest=true';
+}
+</script>
 </body>
 </html>

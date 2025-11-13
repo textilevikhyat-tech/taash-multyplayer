@@ -1,11 +1,10 @@
-<!-- public/table/table.html -->
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Game Table</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Game Table</title>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="rotate-message">📱 कृपया फ़ोन को लैंडस्केप मोड में घुमाएँ ताकि गेम बेहतर दिखे!</div>
@@ -28,6 +27,8 @@
     <button id="resolve-round">Resolve Round</button>
     <button id="leave-room">Leave</button>
   </div>
+
+  <audio id="flipSound" src="../assets/card-flip.mp3"></audio>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>

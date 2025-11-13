@@ -9,6 +9,7 @@
 <body>
   <h1>29 Tash Multiplayer Game</h1>
 
+  <!-- Auth Section -->
   <div id="auth">
     <h2>Register</h2>
     <input type="text" id="reg-username" placeholder="Username" />
@@ -23,6 +24,7 @@
     <p id="auth-message" class="msg"></p>
   </div>
 
+  <!-- Dashboard Section -->
   <div id="dashboard" style="display: none;">
     <h2>Welcome, <span id="user-name"></span> 👋</h2>
     <p>Coins: 💰 <span id="user-coins">0</span></p>
@@ -41,7 +43,13 @@
       <button onclick="startGame()">Start Game</button>
     </div>
 
+    <!-- Game Log -->
     <div id="game-log" class="log"></div>
+
+    <!-- 👇 Added Card Hand Display Section -->
+    <h4>Your Hand</h4>
+    <div id="hand" class="hand-container"></div>
+
     <button onclick="logout()" class="logout">Logout</button>
   </div>
 

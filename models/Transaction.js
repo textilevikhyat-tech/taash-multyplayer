@@ -1,8 +1,7 @@
-// models/Transaction.js
+// backend/models/Transaction.js
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-const WalletSchema = new Schema({
+const WalletSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   coins: { type: Number, default: 100 },
   isAdmin: { type: Boolean, default: false },

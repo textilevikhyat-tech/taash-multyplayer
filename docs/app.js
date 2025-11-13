@@ -149,13 +149,77 @@ socket.on("roomUpdate", (data) => {
   );
 });
 
-socket.on("gameStarted", (data) => {
-  logMessage("🎮 Game started! Cards have been dealt.");
-  console.log(data.hands);
-});
-
 socket.on("errorMessage", (msg) => {
   alert("⚠️ " + msg.message);
+});
+
+// ---------- helper to render a single card ----------
+function renderCardElement(card) {
+  let rank = card.rank ?? null;
+  let suit = card.suit ?? null;
+
+  if (!rank || !suit) {
+    if (typeof card === "string") {
+      const s = card.slice(-1);
+      const r = card.slice(0, card.length - 1);
+      rank = r;
+      suit = s;
+    } else {
+      rank = card.code || "?";
+      suit = "";
+    }
+  }
+
+  const el = document.createElement("div");
+  el.className = "card playable";
+  const rankSpan = document.createElement("span");
+  rankSpan.className = "rank";
+  rankSpan.innerText = rank;
+  const suitSpan = document.createElement("span");
+  suitSpan.className = "suit";
+  suitSpan.innerText = suit;
+
+  if (suit === "♥" || suit === "♦") suitSpan.classList.add("red");
+  else suitSpan.classList.add("black");
+
+  el.appendChild(rankSpan);
+  el.appendChild(suitSpan);
+
+  el.addEventListener("click", () => {
+    logMessage(`🃏 You clicked ${rank}${suit}`);
+  });
+
+  return el;
+}
+
+// ---------- render full hand ----------
+function renderHand(cardsArray) {
+  const handEl = document.getElementById("hand");
+  if (!handEl) return;
+  handEl.innerHTML = "";
+  cardsArray.forEach((c) => {
+    const cardEl = renderCardElement(c);
+    handEl.appendChild(cardEl);
+  });
+}
+
+// ---------- updated handler for gameStarted ----------
+socket.on("gameStarted", (data) => {
+  logMessage("🎮 Game started! Cards have been dealt.");
+
+  const hands = data.hands || data;
+  let myHand = [];
+
+  if (hands[socket.id]) {
+    myHand = hands[socket.id];
+  } else {
+    const me = localStorage.getItem("username");
+    if (hands[me]) myHand = hands[me];
+    else if (data.players && data.cards && data.cards[me]) myHand = data.cards[me];
+  }
+
+  console.log("My hand:", myHand);
+  renderHand(myHand);
 });
 
 // ✅ LOG HELPER

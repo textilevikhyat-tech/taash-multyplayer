@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guest Mode — Tash Multiplayer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rajdhani:wght@500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Rajdhani', sans-serif;
+      background: radial-gradient(circle at center, #004400, #001900);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .title {
+      font-family: 'Orbitron', sans-serif;
+      color: #ffcc00;
+      font-size: 2.5rem;
+      text-shadow: 0 0 20px #ffcc00;
+      margin-bottom: 10px;
+    }
+
+    .info {
+      color: #bbb;
+      margin-bottom: 20px;
+      font-size: 1rem;
+    }
+
+    .btn {
+      background: linear-gradient(45deg, #ff8c00, #ffcc00);
+      color: #000;
+      border: none;
+      border-radius: 30px;
+      padding: 12px 25px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px #ffcc00;
+    }
+
+    .back {
+      margin-top: 30px;
+      font-size: 0.9rem;
+      color: #888;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">Guest Mode 🎮</div>
+  <div class="info">You’re playing as Guest. Coins are disabled.</div>
+
+  <button class="btn" onclick="joinRandom()">Join Random Match</button>
+  <button class="btn" onclick="createRoom()">Create Private Room</button>
+
+  <div class="back" onclick="window.location.href='/'">← Back to Home</div>
+
+  <script>
+    function joinRandom() {
+      const guestName = "Guest" + Math.floor(Math.random() * 10000);
+      alert(`🔗 Joining random game as ${guestName}`);
+      window.location.href = `/table.html?guest=${guestName}`;
+    }
+
+    function createRoom() {
+      const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+      alert(`🎴 Private Room Created: ${code}\nShare this code with friends.`);
+      window.location.href = `/table.html?room=${code}&guest=true`;
+    }
+  </script>
+</body>
+</html>

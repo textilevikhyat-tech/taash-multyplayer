@@ -1,111 +1,107 @@
-body {
+/* ✅ Reset */
+html, body {
   margin: 0;
   padding: 0;
-  font-family: 'Rajdhani', sans-serif;
-  background: radial-gradient(circle at center, #004400, #001900);
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
+  background: #0b132b;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
 }
 
-#table {
-  position: relative;
+/* ✅ Center Game Container */
+#game-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 100vw;
   height: 100vh;
-  background: url('../assets/table-bg.png') center/cover no-repeat;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.player {
-  position: absolute;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  color: #fff;
-  text-align: center;
-  width: 120px;
 }
 
-.player .avatar {
-  width: 80px;
-  height: 80px;
+/* ✅ Game Table */
+#table {
+  background: radial-gradient(circle at center, #1c2541, #0b132b);
   border-radius: 50%;
-  border: 3px solid #ffcc00;
-  box-shadow: 0 0 20px #ffcc00;
-}
-
-.name {
-  font-family: 'Orbitron', sans-serif;
-  color: #ffcc00;
-  margin-top: 5px;
-}
-
-.coins {
-  font-size: 0.9rem;
-  color: #ccc;
-}
-
-#player1 { bottom: 30px; left: 50%; transform: translateX(-50%); }
-#player2 { top: 30px; left: 50%; transform: translateX(-50%); }
-#player3 { left: 40px; top: 50%; transform: translateY(-50%); }
-#player4 { right: 40px; top: 50%; transform: translateY(-50%); }
-
-.center-area {
-  position: absolute;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.4);
+  width: 80vmin;
+  height: 80vmin;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  justify-content: center;
-  color: #ffcc00;
-  text-shadow: 0 0 10px #ffcc00;
+  box-shadow: 0 0 25px rgba(0,0,0,0.6);
+  border: 3px solid rgba(255,255,255,0.2);
 }
 
-#card-deck {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.card {
-  width: 60px;
-  height: 80px;
-  background: url('../assets/card-back.png') center/cover no-repeat;
+/* ✅ Wallet Info (Top-right) */
+#wallet-info {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 0.6rem 1rem;
   border-radius: 10px;
-  transform-style: preserve-3d;
-  transition: transform 0.8s;
+  font-size: 0.9rem;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
 }
 
-.card.flip {
-  transform: rotateY(180deg);
-}
-
-#dealBtn {
-  background: linear-gradient(45deg, #ff8c00, #ffcc00);
-  border: none;
-  padding: 10px 25px;
-  border-radius: 25px;
-  font-size: 1rem;
-  font-weight: bold;
-  color: #000;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: 0.3s;
-}
-
-#dealBtn:hover {
-  box-shadow: 0 0 20px #ffcc00;
-  transform: scale(1.1);
-}
-
-#status {
-  font-size: 1rem;
+/* ✅ Rotate Message (Portrait only) */
+#rotate-message {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
   color: #fff;
-  margin-top: 10px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-size: 1.3rem;
+  z-index: 9999;
+}
+
+/* ✅ Bottom Bar */
+#bottom-bar {
+  position: fixed;
+  bottom: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+  z-index: 1000;
+}
+
+#bottom-bar button {
+  background: linear-gradient(135deg, #0077b6, #00b4d8);
+  border: none;
+  color: #fff;
+  padding: 0.8rem 1.6rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+}
+
+#bottom-bar button:hover {
+  transform: scale(1.05);
+  background: linear-gradient(135deg, #00b4d8, #90e0ef);
+}
+
+/* ✅ Portrait Mode */
+@media screen and (orientation: portrait) {
+  #rotate-message {
+    display: flex;
+  }
+  #game-container, #bottom-bar, #wallet-info {
+    display: none;
+  }
 }

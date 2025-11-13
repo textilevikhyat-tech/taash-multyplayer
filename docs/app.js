@@ -1,200 +1,174 @@
-const API_BASE = "https://taash-multyplayer.onrender.com"; // your backend URL
+const API_BASE = "https://taash-multyplayer.onrender.com"; // backend URL
 const socket = io(API_BASE);
 
 let token = localStorage.getItem("token") || null;
 let username = localStorage.getItem("username") || null;
-let currentRoom = null;
 
+// Selectors
 const authSection = document.getElementById("auth");
 const dashboard = document.getElementById("dashboard");
 const userNameDisplay = document.getElementById("user-name");
 const userCoinsDisplay = document.getElementById("user-coins");
 const gameLog = document.getElementById("game-log");
-const roomInfo = document.getElementById("room-info");
-const bidsLog = document.getElementById("bids-log");
-const biddingBox = document.getElementById("bidding");
 
-// ---------- AUTH ----------
+// --- REGISTER ---
 async function register() {
-  const u = document.getElementById("reg-username").value.trim();
-  const p = document.getElementById("reg-password").value.trim();
-  if (!u || !p) return alert("Enter username and password");
+  const username = document.getElementById("reg-username").value.trim();
+  const password = document.getElementById("reg-password").value.trim();
+  if (!username || !password) return alert("Enter username and password");
+
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({username:u,password:p})
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
   });
   const data = await res.json();
-  alert(data.message || "Registered");
+  alert(data.message || "Registered successfully!");
 }
 
+// --- LOGIN ---
 async function login() {
-  const u = document.getElementById("login-username").value.trim();
-  const p = document.getElementById("login-password").value.trim();
-  if (!u || !p) return alert("Enter both fields");
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({username:u,password:p})
-  });
-  const data = await res.json();
-  if (data.token) {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("username", data.username);
-    token = data.token;
-    username = data.username;
-    showDashboard();
-    getWallet();
-    log(`✅ Logged in as ${username}`);
-  } else alert(data.message || "Login failed");
+  const usernameInput = document.getElementById("login-username").value.trim();
+  const passwordInput = document.getElementById("login-password").value.trim();
+  if (!usernameInput || !passwordInput) return alert("Enter both fields");
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: usernameInput, password: passwordInput }),
+    });
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("username", data.username);
+      token = data.token;
+      username = data.username;
+      document.getElementById("auth-message").textContent = "✅ Login successful! Redirecting...";
+      showDashboard();
+      getWallet();
+    } else alert(data.message || "Login failed");
+  } catch(err){ alert("Server not reachable"); console.error(err);}
 }
 
-function logout() {
-  localStorage.clear();
-  token = null; username = null; currentRoom = null;
-  dashboard.style.display="none";
-  authSection.style.display="block";
-  roomInfo.innerHTML="";
-  log("Logged out");
-}
-
+// --- DASHBOARD ---
 function showDashboard() {
-  authSection.style.display="none";
-  dashboard.style.display="block";
+  authSection.style.display = "none";
+  dashboard.style.display = "block";
   userNameDisplay.textContent = username;
 }
 
-// ---------- WALLET ----------
+// --- LOGOUT ---
+function logout() {
+  localStorage.clear();
+  authSection.style.display = "block";
+  dashboard.style.display = "none";
+  document.getElementById("auth-message").textContent = "";
+}
+
+// --- WALLET ---
 async function getWallet() {
   try {
-    const res = await fetch(`${API_BASE}/api/wallet`, { headers:{Authorization:`Bearer ${token}`} });
+    const res = await fetch(`${API_BASE}/api/wallet`, { headers: { Authorization: `Bearer ${token}` }});
     const data = await res.json();
-    userCoinsDisplay.textContent = data.coins ?? 0;
-  } catch { userCoinsDisplay.textContent = "0"; }
+    userCoinsDisplay.textContent = data.coins || 0;
+  } catch { userCoinsDisplay.textContent = 0; }
 }
-
 async function addCoins() {
-  const amt = parseInt(document.getElementById("coin-amount").value);
-  if (!amt) return alert("Enter amount");
+  const coins = parseInt(document.getElementById("coin-amount").value);
+  if (!coins) return alert("Enter amount");
   await fetch(`${API_BASE}/api/wallet/add`, {
-    method:"POST", headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-    body: JSON.stringify({coins:amt})
+    method:"POST",
+    headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+    body: JSON.stringify({ coins })
   });
   getWallet();
 }
-
 async function deductCoins() {
-  const amt = parseInt(document.getElementById("coin-amount").value);
-  if (!amt) return alert("Enter amount");
+  const coins = parseInt(document.getElementById("coin-amount").value);
+  if (!coins) return alert("Enter amount");
   await fetch(`${API_BASE}/api/wallet/deduct`, {
-    method:"POST", headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-    body: JSON.stringify({coins:amt})
+    method:"POST",
+    headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+    body: JSON.stringify({ coins })
   });
   getWallet();
 }
 
-// ---------- ROOMS ----------
-function createRoom() {
+// --- GAME ROOM ---
+function joinGame() {
   const room = document.getElementById("room-name").value.trim();
-  if(!room) return alert("Enter room name");
-  socket.emit("createRoom",{room,username});
+  if (!room) return alert("Enter room name");
+  socket.emit("joinRoom", { room, username });
+  logMessage(`🟢 You joined room: ${room}`);
 }
-
-function joinRoom() {
-  const room = document.getElementById("room-name").value.trim();
-  if(!room) return alert("Enter room name");
-  socket.emit("joinRoom",{room,username});
-  currentRoom = room;
-}
-
-function leaveRoom() {
-  if(!currentRoom) return;
-  socket.emit("leaveRoom",currentRoom);
-  currentRoom=null;
-  roomInfo.innerHTML="";
-  biddingBox.style.display="none";
-}
-
 function startGame() {
-  if(!currentRoom) return alert("Join a room first");
-  socket.emit("startGame",currentRoom);
+  const room = document.getElementById("room-name").value.trim();
+  if (!room) return alert("Enter room name");
+  socket.emit("startGame", room);
 }
 
-// ---------- SOCKET ----------
-socket.on("connect",()=>log(`Socket connected: ${socket.id}`));
+// --- LOG ---
+function logMessage(msg){
+  const p = document.createElement("p");
+  p.textContent = msg;
+  gameLog.appendChild(p);
+}
 
-socket.on("roomCreated",data=>log(`Room created: ${data.room}`));
-socket.on("roomUpdate",data=>{
-  currentRoom=data.room;
-  roomInfo.innerHTML=`<b>Room:</b> ${data.room} — Players: ${data.players.map(p=>p.username).join(", ")}`;
-  log(`Players: ${data.players.map(p=>p.username).join(", ")}`);
+// --- SOCKET EVENTS ---
+socket.on("connect", () => console.log("Connected:", socket.id));
+
+socket.on("roomUpdate", (data) => {
+  logMessage(`👥 Room: ${data.room} — Players: ${data.players.map(p=>p.username).join(", ")}`);
 });
 
-socket.on("gameStarted",data=>{
-  log("🎮 Game started — cards dealt");
-  biddingBox.style.display="block"; bidsLog.innerHTML="";
-  const hands = data.hands||data;
-  let myHand = hands[username]||hands[socket.id]||[];
+socket.on("gameStarted", (data) => {
+  logMessage("🎮 Game started! Cards have been dealt.");
+  const hands = data.hands || {};
+  let myHand = hands[socket.id] || hands[username] || [];
   renderHand(myHand);
 });
 
-socket.on("bidUpdate",info=>{
-  bidsLog.innerHTML="";
-  info.bidsArray.forEach(b=>{
-    const p=document.createElement("p");
-    p.innerText=`${b.username}: ₹${b.amount}`;
-    bidsLog.appendChild(p);
-  });
-  if(info.highestBidder) log(`🔔 Highest: ${info.highestBidder} - ₹${info.highestBid}`);
+socket.on("cardPlayed", ({ username, card }) => {
+  logMessage(`🃏 ${username} played ${card.rank}${card.suit}`);
 });
 
-socket.on("cardPlayed",data=>{
-  log(`${data.username} played ${data.card.rank}${data.card.suit}`);
-});
-
-socket.on("errorMessage",err=>alert("Error: "+(err.message||JSON.stringify(err))));
-
-// ---------- LOG & HAND ----------
-function log(msg){
-  const p=document.createElement("p"); p.textContent=msg;
-  gameLog.appendChild(p); gameLog.scrollTop=gameLog.scrollHeight;
-}
-
+// --- CARD RENDERING ---
 function renderCardElement(card){
-  let rank=card.rank??null; let suit=card.suit??null;
-  if(!rank||!suit){
-    if(typeof card==="string"){ const s=card.slice(-1); const r=card.slice(0,card.length-1); rank=r; suit=s;}
-    else { rank=card.code||"?"; suit="";}
+  let rank = card.rank ?? null;
+  let suit = card.suit ?? null;
+  if (!rank || !suit) {
+    if(typeof card==='string'){ suit=card.slice(-1); rank=card.slice(0,card.length-1);}
+    else { rank=card.code||'?'; suit=''; }
   }
-  const el=document.createElement("div"); el.className="card playable";
-  const rspan=document.createElement("div"); rspan.className="rank"; rspan.innerText=rank;
-  const sspan=document.createElement("div"); sspan.className="suit"; sspan.innerText=suit;
-  if(suit==="♥"||suit==="♦") sspan.classList.add("red"); else sspan.classList.add("black");
-  el.appendChild(rspan); el.appendChild(sspan);
+  const el = document.createElement('div');
+  el.className = 'card playable';
+  const rankSpan=document.createElement('span');
+  rankSpan.className='rank'; rankSpan.innerText=rank;
+  const suitSpan=document.createElement('span');
+  suitSpan.className='suit'; suitSpan.innerText=suit;
+  if(suit==='♥'||suit==='♦') suitSpan.classList.add('red'); else suitSpan.classList.add('black');
+  el.appendChild(rankSpan); el.appendChild(suitSpan);
 
-  el.addEventListener("click",()=>{
-    if(!currentRoom) return alert("Join a room first");
-    log(`🃏 You played ${rank}${suit}`);
-    socket.emit("playCard",{room:currentRoom,card:{rank,suit},username});
+  el.addEventListener('click',()=>{
+    const room=document.getElementById("room-name").value.trim();
+    if(!room) return alert("No room joined!");
+    logMessage(`🃏 You played ${rank}${suit}`);
+    socket.emit("playCard",{ room, card:{rank,suit}, username });
     el.style.opacity="0.5";
   });
   return el;
 }
 
-function renderHand(cards){
-  const handEl=document.getElementById("hand"); handEl.innerHTML="";
-  (cards||[]).forEach(c=>handEl.appendChild(renderCardElement(c)));
+function renderHand(cardsArray){
+  const handEl=document.getElementById("hand");
+  if(!handEl) return;
+  handEl.innerHTML='';
+  cardsArray.forEach(c=>handEl.appendChild(renderCardElement(c)));
 }
 
-// ---------- BIDDING ----------
-function placeBid(){
-  const amt=parseInt(document.getElementById("bid-amount").value);
-  if(!currentRoom) return alert("Join a room first");
-  if(!amt||amt<=0) return alert("Enter valid bid");
-  socket.emit("placeBid",{room:currentRoom,username,amount:amt});
+// --- AUTO LOGIN ---
+if(token && username){
+  showDashboard();
+  getWallet();
 }
-
-// ---------- AUTO LOGIN ----------
-window.onload=()=>{
-  if(token && username){ showDashboard(); getWallet();}
-};

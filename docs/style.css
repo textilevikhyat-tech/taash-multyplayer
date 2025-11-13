@@ -56,3 +56,53 @@ button:hover {
   overflow-y: auto;
   border-radius: 8px;
 }
+
+/* 🎴 Cards / Hand Styling */
+.hand-container {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.card {
+  width: 64px;
+  height: 92px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  user-select: none;
+}
+
+.card .rank {
+  font-size: 18px;
+}
+
+.card .suit {
+  font-size: 20px;
+  margin-left: 4px;
+}
+
+.suit.red {
+  color: #e74c3c; /* hearts/diamonds */
+}
+
+.suit.black {
+  color: #111; /* spades/clubs */
+}
+
+.card.playable {
+  cursor: pointer;
+  transform: translateY(0);
+  transition: transform 0.12s;
+}
+
+.card.playable:hover {
+  transform: translateY(-6px);
+}

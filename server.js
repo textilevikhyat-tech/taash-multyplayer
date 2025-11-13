@@ -25,7 +25,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 // JWT secret
 const JWT_SECRET = "your_jwt_secret_here"; // Change this in production
 
-// In-memory Users (or you can move to DB)
+// In-memory Users (temporary)
 const users = [];
 
 // --- AUTH ROUTES ---
@@ -40,11 +40,12 @@ app.post('/api/auth/register', async (req, res) => {
   const newUser = { username, password: hashed };
   users.push(newUser);
 
-  // create wallet entry
   try {
     const wallet = new Wallet({ username });
     await wallet.save();
-  } catch(err){ console.log(err.message) }
+  } catch (err) {
+    console.log(err.message);
+  }
 
   res.json({ message: "Registered successfully" });
 });
@@ -70,7 +71,9 @@ app.get('/api/wallet', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const wallet = await Wallet.findOne({ username: decoded.username });
     return res.json({ coins: wallet?.coins || 0 });
-  } catch(err) { return res.status(401).json({ message: "Invalid token" }); }
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 });
 
 app.post('/api/wallet/add', async (req, res) => {
@@ -84,7 +87,9 @@ app.post('/api/wallet/add', async (req, res) => {
     wallet.coins += coins;
     await wallet.save();
     return res.json({ coins: wallet.coins });
-  } catch(err) { return res.status(401).json({ message: "Invalid token" }); }
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 });
 
 app.post('/api/wallet/deduct', async (req, res) => {
@@ -98,14 +103,16 @@ app.post('/api/wallet/deduct', async (req, res) => {
     wallet.coins = Math.max(wallet.coins - coins, 0);
     await wallet.save();
     return res.json({ coins: wallet.coins });
-  } catch(err) { return res.status(401).json({ message: "Invalid token" }); }
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 });
 
-// --- SOCKET.IO ---
+// --- SOCKET.IO SETUP ---
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-io.serverState = io.serverState || { roomCreators: {} };
+io.serverState = io.serverState || { roomCreators: {}, rooms: {} };
 
 io.on('connection', (socket) => {
   console.log('🟢 Player connected:', socket.id);
@@ -119,11 +126,70 @@ io.on('connection', (socket) => {
     if (!state.roomCreators[room]) state.roomCreators[room] = socket.id;
 
     const sockets = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    const players = sockets.map(id => ({ id, username: io.sockets.sockets.get(id).data.username }));
+    const players = sockets.map(id => ({
+      id,
+      username: io.sockets.sockets.get(id).data.username
+    }));
 
     io.to(room).emit('roomUpdate', { room, players, creatorId: state.roomCreators[room] });
   });
 
+  // ✅ Updated startBid handler (with coin check before deduction)
+  socket.on('startBid', async (data) => {
+    try {
+      const { room, biddingTeam, bidAmount } = data;
+      if (!room || !Array.isArray(biddingTeam) || !bidAmount) {
+        socket.emit('errorMessage', { message: 'Invalid startBid data' });
+        return;
+      }
+
+      const perPlayer = Number(bidAmount) / 2;
+
+      // Step 1: Check if all players have enough coins
+      const insufficient = [];
+      const playerWallets = [];
+      for (const username of biddingTeam) {
+        const w = await Wallet.findOne({ username });
+        if (!w) {
+          insufficient.push(username + ' (no wallet)');
+        } else if (w.coins < perPlayer) {
+          insufficient.push(username + ' (not enough coins)');
+        } else {
+          playerWallets.push(w);
+        }
+      }
+
+      if (insufficient.length > 0) {
+        socket.emit('errorMessage', {
+          message: `Bid rejected! These players don't have enough coins: ${insufficient.join(', ')}`
+        });
+        io.to(room).emit('logMessage', {
+          message: `⚠️ Bid cancelled — insufficient coins for: ${insufficient.join(', ')}`
+        });
+        return;
+      }
+
+      // Step 2: Deduct from each verified wallet
+      for (const w of playerWallets) {
+        w.coins -= perPlayer;
+        await w.save();
+        io.to(room).emit('walletUpdate', { username: w.username, coins: w.coins });
+      }
+
+      // Step 3: Save the active bid in memory
+      io.serverState.rooms[room] = io.serverState.rooms[room] || {};
+      io.serverState.rooms[room].currentBid = { biddingTeam, bidAmount };
+
+      // Step 4: Notify all players in room
+      io.to(room).emit('bidStarted', { biddingTeam, bidAmount });
+      console.log(`✅ Bid started in ${room}: ${bidAmount} by ${biddingTeam.join(', ')}`);
+    } catch (err) {
+      console.error('startBid error', err);
+      socket.emit('errorMessage', { message: 'Failed to start bid' });
+    }
+  });
+
+  // --- GAME START ---
   socket.on('startGame', (room) => {
     const state = io.serverState;
     if (state.roomCreators[room] !== socket.id) {
@@ -143,6 +209,7 @@ io.on('connection', (socket) => {
     io.to(room).emit('gameStarted', { hands });
   });
 
+  // --- PLAY CARD ---
   socket.on('playCard', ({ room, card, username }) => {
     io.to(room).emit('cardPlayed', { username, card });
   });
@@ -154,21 +221,22 @@ io.on('connection', (socket) => {
 
 // --- DECK HELPERS ---
 function createDeck() {
-  const suits = ['♠','♥','♦','♣'];
-  const ranks = ['9','10','J','Q','K','A'];
+  const suits = ['♠', '♥', '♦', '♣'];
+  const ranks = ['9', '10', 'J', 'Q', 'K', 'A'];
   const deck = [];
   suits.forEach(s => ranks.forEach(r => deck.push({ suit: s, rank: r })));
   return deck;
 }
+
 function shuffle(deck) {
-  for(let i = deck.length-1; i>0; i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [deck[i],deck[j]]=[deck[j],deck[i]];
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
 }
 
-app.get('/', (req,res)=>res.send("🚀 Server running"));
+app.get('/', (req, res) => res.send("🚀 Server running"));
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, ()=>console.log(`🌍 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken'); // ✅ Add JWT
 const User = require('../../models/User');
 
 // ✅ Register user
@@ -8,7 +9,8 @@ router.post('/register', async (req, res) => {
   const { username, password } = req.body;
   try {
     const existingUser = await User.findOne({ username });
-    if (existingUser) return res.status(400).json({ message: 'Username already exists' });
+    if (existingUser)
+      return res.status(400).json({ message: 'Username already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({ username, password: hashedPassword });
@@ -16,6 +18,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ message: 'User registered successfully', user: newUser });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
@@ -23,15 +26,31 @@ router.post('/register', async (req, res) => {
 // ✅ Login user
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
+
   try {
     const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ message: 'User not found' });
+    if (!user)
+      return res.status(400).json({ message: 'User not found' });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid password' });
+    if (!isMatch)
+      return res.status(400).json({ message: 'Invalid password' });
 
-    res.status(200).json({ message: 'Login successful', user });
+    // ✅ Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, username: user.username },
+      'SECRET_KEY', // ⚠️ Change this to process.env.JWT_SECRET in production
+      { expiresIn: '1d' }
+    );
+
+    // ✅ Send token & username
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      username: user.username,
+    });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });

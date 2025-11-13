@@ -1,63 +1,47 @@
 body {
   font-family: Arial, sans-serif;
   text-align: center;
-  background: #f5f5f5;
+  background: #f4f6f8;
   color: #222;
+  padding: 12px;
 }
 
-h1 {
-  margin-top: 20px;
-  color: #3c3c8c;
-}
+h1 { color: #2c3e50; }
 
 #auth, #dashboard {
-  background: white;
-  margin: 30px auto;
-  padding: 20px;
+  background: #fff;
+  max-width: 520px;
+  margin: 18px auto;
+  padding: 18px;
   border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
 }
 
 input, button {
-  margin: 8px;
-  padding: 10px;
   width: 80%;
+  padding: 8px;
+  margin: 6px 0;
   border-radius: 8px;
   border: 1px solid #ccc;
 }
 
-button {
-  background: #3c3c8c;
-  color: white;
-  cursor: pointer;
-}
+button { background: #2774f1; color: #fff; border: none; cursor: pointer; }
+button:hover { opacity: 0.95; }
 
-button:hover {
-  background: #2a2a6a;
-}
+.msg { color: green; margin-top: 8px; font-weight: 600; }
 
-.msg {
-  margin-top: 10px;
-  color: green;
-}
-
-.logout {
-  background: crimson;
-}
-
-.log {
+.log, .info {
   text-align: left;
-  background: #eee;
-  margin: 10px;
+  background: #fafafa;
+  border-radius: 8px;
   padding: 10px;
+  margin: 10px auto;
+  max-width: 480px;
   height: 120px;
   overflow-y: auto;
-  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(0,0,0,0.02);
 }
 
-/* 🎴 Cards / Hand Styling */
 .hand-container {
   display: flex;
   gap: 8px;
@@ -70,39 +54,23 @@ button:hover {
   width: 64px;
   height: 92px;
   border-radius: 8px;
-  background: white;
-  border: 1px solid #ccc;
+  background: #fff;
+  border: 1px solid #d0d7de;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 10px rgba(0,0,0,.06);
   user-select: none;
 }
 
-.card .rank {
-  font-size: 18px;
-}
+.rank { font-size: 18px; }
+.suit { font-size: 20px; margin-top: 4px; }
+.suit.red { color: #e74c3c; }
+.suit.black { color: #111; }
 
-.card .suit {
-  font-size: 20px;
-  margin-left: 4px;
-}
+.card.playable { cursor: pointer; transition: transform .12s; }
+.card.playable:hover { transform: translateY(-6px); }
 
-.suit.red {
-  color: #e74c3c; /* hearts/diamonds */
-}
-
-.suit.black {
-  color: #111; /* spades/clubs */
-}
-
-.card.playable {
-  cursor: pointer;
-  transform: translateY(0);
-  transition: transform 0.12s;
-}
-
-.card.playable:hover {
-  transform: translateY(-6px);
-}
+.logout { background: #e74c3c; margin-top: 10px; width: 60%; }

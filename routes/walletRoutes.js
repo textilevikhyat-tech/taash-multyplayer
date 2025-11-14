@@ -4,12 +4,15 @@ const Wallet = require('../models/Transaction');
 
 const router = express.Router();
 
+// Middleware: verify token
 const auth = (req, res, next) => {
-  const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ message: "No token" });
+  const header = req.headers.authorization;
+
+  if (!header)
+    return res.status(401).json({ message: "No token provided" });
 
   try {
-    const token = auth.split(" ")[1];
+    const token = header.split(" ")[1];
     req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch (err) {
@@ -17,32 +20,52 @@ const auth = (req, res, next) => {
   }
 };
 
-// get coins
+// -------- GET COINS --------
 router.get("/", auth, async (req, res) => {
-  const wallet = await Wallet.findOne({ username: req.user.username });
-  res.json({ coins: wallet?.coins || 0 });
+  try {
+    const wallet = await Wallet.findOne({ username: req.user.username });
+    return res.json({ coins: wallet?.coins || 0 });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
-// add coins
+// -------- ADD COINS --------
 router.post("/add", auth, async (req, res) => {
-  const { coins } = req.body;
+  try {
+    const { coins } = req.body;
 
-  const wallet = await Wallet.findOne({ username: req.user.username });
-  wallet.coins += coins;
-  await wallet.save();
+    if (typeof coins !== "number")
+      return res.status(400).json({ message: "Invalid coins value" });
 
-  res.json({ coins: wallet.coins });
+    const wallet = await Wallet.findOne({ username: req.user.username });
+    wallet.coins += coins;
+
+    await wallet.save();
+    return res.json({ coins: wallet.coins });
+
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
-// deduct coins
+// -------- DEDUCT COINS --------
 router.post("/deduct", auth, async (req, res) => {
-  const { coins } = req.body;
+  try {
+    const { coins } = req.body;
 
-  const wallet = await Wallet.findOne({ username: req.user.username });
-  wallet.coins = Math.max(wallet.coins - coins, 0);
-  await wallet.save();
+    if (typeof coins !== "number")
+      return res.status(400).json({ message: "Invalid coins value" });
 
-  res.json({ coins: wallet.coins });
+    const wallet = await Wallet.findOne({ username: req.user.username });
+    wallet.coins = Math.max(wallet.coins - coins, 0);
+
+    await wallet.save();
+    return res.json({ coins: wallet.coins });
+
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
 module.exports = router;

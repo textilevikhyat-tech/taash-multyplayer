@@ -1,52 +1,54 @@
-// backend/controllers/authController.js
-const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Wallet = require('../models/Transaction');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_123';
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Register
-router.post('/register', async (req, res) => {
+exports.register = async (req, res) => {
+  const { username, password } = req.body;
+
   try {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ message: 'Missing fields' });
-
-    const existing = await User.findOne({ username });
-    if (existing) return res.status(400).json({ message: 'Username exists' });
+    const exists = await User.findOne({ username });
+    if (exists) return res.status(400).json({ message: "Username already exists" });
 
     const hash = await bcrypt.hash(password, 10);
-    const user = new User({ username, passwordHash: hash });
-    await user.save();
 
-    // create wallet if not exists
-    await Wallet.updateOne({ username }, { $setOnInsert: { username, coins: 100 } }, { upsert: true });
+    const newUser = new User({
+      username,
+      passwordHash: hash
+    });
 
-    res.json({ message: 'Registered successfully' });
+    await newUser.save();
+
+    // create wallet
+    const wallet = new Wallet({ username, coins: 100 });
+    await wallet.save();
+
+    return res.json({ message: "Registered successfully" });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Register Error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
-});
+};
 
-// Login
-router.post('/login', async (req, res) => {
+
+exports.login = async (req, res) => {
+  const { username, password } = req.body;
+
   try {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ message: 'Missing fields' });
-
     const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ message: 'User not found' });
+    if (!user) return res.status(400).json({ message: "User not found" });
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(400).json({ message: 'Invalid password' });
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) return res.status(400).json({ message: "Incorrect password" });
 
-    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "1d" });
+
     res.json({ token, username });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Login Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
-});
-
-module.exports = router;
+};

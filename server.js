@@ -1,4 +1,4 @@
-// server.js (paste into project root — replaces old server.js)
+// server.js (fixed — replace your old server.js with this)
 require("dotenv").config();
 
 const express = require("express");
@@ -10,25 +10,26 @@ const { Server } = require("socket.io");
 const crypto = require("crypto");
 const fs = require("fs");
 
-// Your project models / controllers (adjust names only if your files differ)
+// Controllers & models
 const authController = require("./backend/controllers/authController");
-const walletModel = require("./models/Transaction"); // expect a Transaction or Wallet model
-// NOTE: User model not strictly needed in this server file; authController handles register/login
+// Your model file may be named Transaction.js but export model 'Wallet' — we require the file.
+// Adjust path if you renamed the file to Wallet.js
+const walletModel = require("./models/Transaction"); // expects model with fields: { username, coins }
 
+// Express
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connect Mongo (ensure MONGO_URI is set in Render / env)
+// Mongo connect
 mongoose
   .connect(process.env.MONGO_URI || "", { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ Mongo Error:", err && err.message));
 
-// Routes (reuse your existing controllers)
+// Routes
 app.post("/api/auth/register", authController.register);
 app.post("/api/auth/login", authController.login);
-// if you have wallet routes separately, keep them (they are in /routes/walletRoutes.js)
 try {
   const walletRoutes = require("./routes/walletRoutes");
   app.use("/api/wallet", walletRoutes);
@@ -36,7 +37,7 @@ try {
   console.log("No walletRoutes found or failed to load; continuing without mounting /api/wallet");
 }
 
-// Serve frontend: prefer Vite build in frontend/dist, fallback to public/index.html
+// Serve frontend
 const frontendIndex = path.join(__dirname, "frontend", "dist", "index.html");
 if (fs.existsSync(path.join(__dirname, "frontend", "dist"))) {
   app.use(express.static(path.join(__dirname, "frontend", "dist")));
@@ -45,7 +46,7 @@ if (fs.existsSync(path.join(__dirname, "public"))) {
   app.use(express.static(path.join(__dirname, "public")));
 }
 
-// --- GAME LOGIC UTILITIES ---
+// --- GAME UTILITIES ---
 const SUITS = ["H", "D", "S", "C"];
 const RANKS = ["J", "9", "A", "10", "K", "Q", "8", "7"];
 const CARD_ORDER = { J: 8, 9: 7, A: 6, "10": 5, K: 4, Q: 3, 8: 2, 7: 1 };
@@ -86,8 +87,6 @@ function calcPoints(cards, lastTrickBonus = false) {
   if (lastTrickBonus) pts += 1;
   return pts;
 }
-
-// Pyar rule (declarer team = teamA, opponents = teamB)
 function applyPyarRule(match) {
   const declarerBid = match.bid;
   const trumpColor = getColor(match.trumpSuit);
@@ -117,21 +116,14 @@ function applyPyarRule(match) {
   return { newBid, teamAPyar, teamBPyar };
 }
 
-// Simple server-side bot factory
 function makeBot(nameSuffix) {
   return { id: "bot-" + crypto.randomBytes(3).toString("hex"), name: "Bot" + (nameSuffix || ""), isBot: true, socketId: null };
 }
 
-// Rooms in-memory
-// roomCode -> { players: [{id, name, socketId, isBot}], status, autoStartTimer, createdAt, match }
-// match object set when playing
 const rooms = {};
-
-// Server + Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// helper: find open waiting room with <4 players
 function findOpenRoom() {
   for (const code of Object.keys(rooms)) {
     const r = rooms[code];
@@ -139,45 +131,46 @@ function findOpenRoom() {
   }
   return null;
 }
-
-// helper: get socket by id
 function getSocket(id) {
   return io.sockets.sockets.get(id) || null;
 }
-
-// Auto-start seconds (after first join) - adjust as needed
 const AUTO_START_SECONDS = 6;
 
 io.on("connection", (socket) => {
   console.log("🟢 socket connected:", socket.id);
 
-  // quickJoin (random matchmaking)
+  // ----------------- quickJoin -----------------
   socket.on("quickJoin", ({ username, preferredBid, preferredTrump }) => {
     try {
+      // set socket username for later emits
+      socket.data.username = username || ("Guest" + Math.floor(Math.random() * 10000));
+
       let code = findOpenRoom();
       if (!code) {
         code = crypto.randomBytes(3).toString("hex");
         rooms[code] = { players: [], status: "waiting", createdAt: Date.now(), autoStartTimer: null };
       }
-      const player = { id: socket.id, name: username || "Guest", socketId: socket.id, isBot: false };
-      rooms[code].players.push(player);
+
+      // prevent duplicate joins from same socket id (defensive)
+      if (!rooms[code].players.find((p) => p.id === socket.id)) {
+        const player = { id: socket.id, name: socket.data.username, socketId: socket.id, isBot: false };
+        rooms[code].players.push(player);
+      }
+
       socket.join(code);
       io.to(code).emit("roomUpdate", { room: code, players: rooms[code].players });
 
-      // if 4 players -> start immediately
       if (rooms[code].players.length >= 4) {
         startMatch(code, { bid: preferredBid || 16, trumpSuit: preferredTrump || "H" });
         return;
       }
 
-      // set auto-start timer to fill bots and start
       if (rooms[code].autoStartTimer) clearTimeout(rooms[code].autoStartTimer);
       rooms[code].autoStartTimer = setTimeout(() => {
         while (rooms[code].players.length < 4) rooms[code].players.push(makeBot());
         startMatch(code, { bid: preferredBid || 16, trumpSuit: preferredTrump || "H" });
       }, AUTO_START_SECONDS * 1000);
 
-      // ack
       socket.emit("joinedRoom", { roomCode: code });
     } catch (e) {
       console.error(e);
@@ -185,13 +178,14 @@ io.on("connection", (socket) => {
     }
   });
 
-  // createRoom (explicit)
+  // ----------------- createRoom -----------------
   socket.on("createRoom", ({ roomCode, username }) => {
     try {
-      if (!roomCode) roomCode = (crypto.randomBytes(3).toString("hex")).toUpperCase();
+      socket.data.username = username || socket.data.username || ("Guest" + Math.floor(Math.random() * 10000));
+      if (!roomCode) roomCode = crypto.randomBytes(3).toString("hex").toUpperCase();
       if (rooms[roomCode]) return socket.emit("errorMessage", { message: "Room already exists" });
       rooms[roomCode] = { players: [], status: "waiting", createdAt: Date.now(), autoStartTimer: null };
-      const player = { id: socket.id, name: username || "Guest", socketId: socket.id, isBot: false };
+      const player = { id: socket.id, name: socket.data.username, socketId: socket.id, isBot: false };
       rooms[roomCode].players.push(player);
       socket.join(roomCode);
       io.to(roomCode).emit("roomCreated", { roomCode });
@@ -201,12 +195,15 @@ io.on("connection", (socket) => {
     }
   });
 
-  // joinRoom (explicit)
+  // ----------------- joinRoom -----------------
   socket.on("joinRoom", ({ roomCode, username }) => {
     try {
+      socket.data.username = username || socket.data.username || ("Guest" + Math.floor(Math.random() * 10000));
       if (!rooms[roomCode]) return socket.emit("errorMessage", { message: "Room not found" });
-      const player = { id: socket.id, name: username || "Guest", socketId: socket.id, isBot: false };
-      rooms[roomCode].players.push(player);
+      if (!rooms[roomCode].players.find((p) => p.id === socket.id)) {
+        const player = { id: socket.id, name: socket.data.username, socketId: socket.id, isBot: false };
+        rooms[roomCode].players.push(player);
+      }
       socket.join(roomCode);
       io.to(roomCode).emit("joinedRoom", { roomCode });
       io.to(roomCode).emit("roomUpdate", { room: roomCode, players: rooms[roomCode].players });
@@ -215,11 +212,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  // startGame (explicit)
+  // ----------------- startGame -----------------
   socket.on("startGame", (roomCode) => {
     try {
       if (!rooms[roomCode]) return socket.emit("errorMessage", { message: "Room not found" });
-      // fill bots if needed
       while (rooms[roomCode].players.length < 4) rooms[roomCode].players.push(makeBot());
       startMatch(roomCode, { bid: 16, trumpSuit: "H" });
     } catch (e) {
@@ -227,34 +223,24 @@ io.on("connection", (socket) => {
     }
   });
 
-  // startBid (from Table.jsx)
   socket.on("startBid", ({ roomCode, biddingTeam, bidAmount }) => {
     if (!rooms[roomCode] || !rooms[roomCode].match) return socket.emit("errorMessage", { message: "No active match for bidding" });
     io.to(roomCode).emit("bidStarted", { biddingTeam, bidAmount });
   });
 
-  // resolveRound (from Table.jsx) — compute points & emit update (and optionally update DB wallet)
   socket.on("resolveRound", async ({ roomCode, winningTeam }) => {
     try {
       const r = rooms[roomCode];
       if (!r || !r.match) return socket.emit("errorMessage", { message: "No active match" });
-      const m = r.match;
-      // simple reward distribution: compute points per winner from cards
-      const lastWinner = m.trickHistory.length ? m.trickHistory[m.trickHistory.length - 1].winner : null;
-      const declarerPoints = calcPoints(m.scores.declarerTeamCards, lastWinner && m.teams.declarer.includes(lastWinner));
-      const opponentPoints = calcPoints(m.scores.opponentTeamCards, lastWinner && m.teams.opponent.includes(lastWinner));
-
-      // determine which side won (example: compare declared bid to declarerPoints)
-      // For now, accept 'winningTeam' param as array of usernames who won, and give each +10 coins
+      // simple reward distribution
       let perWinner = 10;
       for (const username of winningTeam) {
         try {
-          // Try to update wallet collection loosely if exists
+          // update based on username & coins fields (match your model)
           if (walletModel && walletModel.findOneAndUpdate) {
-            await walletModel.findOneAndUpdate({ user: username }, { $inc: { balance: perWinner } }, { upsert: true, new: true });
-            // emit wallet update (attempt to fetch)
-            const w = await walletModel.findOne({ user: username });
-            io.to(roomCode).emit("walletUpdate", { username, coins: w ? w.balance : perWinner });
+            await walletModel.findOneAndUpdate({ username }, { $inc: { coins: perWinner } }, { upsert: true, new: true });
+            const w = await walletModel.findOne({ username });
+            io.to(roomCode).emit("walletUpdate", { username, coins: w ? w.coins : perWinner });
           } else {
             io.to(roomCode).emit("walletUpdate", { username, coins: perWinner });
           }
@@ -262,9 +248,7 @@ io.on("connection", (socket) => {
           console.log("wallet update failed", e.message);
         }
       }
-
       io.to(roomCode).emit("roundResolved", { winningTeam, perWinner, adminCut: 0 });
-      // End match cleanup
       r.status = "waiting";
       delete r.match;
     } catch (e) {
@@ -272,24 +256,42 @@ io.on("connection", (socket) => {
     }
   });
 
-  // playCard (from Table.jsx)
+  // ----------------- playCard -----------------
   socket.on("playCard", ({ roomCode, card }, cb) => {
     try {
       const r = rooms[roomCode];
       if (!r || !r.match) return cb && cb({ ok: false, msg: "No active match" });
       const m = r.match;
       const playerId = socket.id;
-      // find the handing array for this player
-      const hand = m.hands[playerId] || m.hands[socket.id] || m.hands[socket.handKey] || m.hands[playerId];
-      // There are multiple ways front sends data; for simplicity assume Table.jsx sent card string and server trusts it
-      // push to current trick
-      m.currentTrick.push({ playerId: playerId, card: card });
-      io.to(roomCode).emit("cardPlayed", { username: socket.data && socket.data.username ? socket.data.username : playerId, card: card });
+
+      // defensive: ensure hand exists
+      const playerHand = Array.isArray(m.hands[playerId]) ? m.hands[playerId] : null;
+      if (!playerHand) return cb && cb({ ok: false, msg: "No hand for player" });
+
+      // find card in player's hand and remove it
+      const idx = playerHand.findIndex((c) => c.id === (card.id || card)); // card may be object or id string
+      let playedCard;
+      if (idx !== -1) {
+        playedCard = playerHand.splice(idx, 1)[0];
+      } else {
+        // if frontend sent full object, try match by id property
+        if (card && card.id) {
+          playedCard = card;
+          // also try to remove by id if present in hand
+          const ridx = playerHand.findIndex((c) => c.id === card.id);
+          if (ridx !== -1) playerHand.splice(ridx, 1);
+        } else {
+          return cb && cb({ ok: false, msg: "Card not found in hand" });
+        }
+      }
+
+      m.currentTrick.push({ playerId, card: playedCard });
+      io.to(roomCode).emit("cardPlayed", { username: socket.data && socket.data.username ? socket.data.username : playerId, card: playedCard });
 
       // advance turn
       m.turnIndex = (m.turnIndex + 1) % m.playerOrder.length;
 
-      // if trick complete, resolve
+      // resolve trick if complete
       if (m.currentTrick.length === m.playerOrder.length) {
         const winner = resolveTrick(m.currentTrick, m.trumpSuit);
         m.trickHistory.push({ trick: m.currentTrick.slice(), winner: winner.playerId });
@@ -300,7 +302,7 @@ io.on("connection", (socket) => {
         io.to(roomCode).emit("trickWon", { winner: winner.playerId, trick: m.trickHistory[m.trickHistory.length - 1] });
       }
 
-      // if all cards played -> match end
+      // check all empty
       const allEmpty = Object.values(m.hands).every((h) => Array.isArray(h) ? h.length === 0 : true);
       if (allEmpty) {
         const lastWinner = m.trickHistory.length ? m.trickHistory[m.trickHistory.length - 1].winner : null;
@@ -310,7 +312,6 @@ io.on("connection", (socket) => {
         r.status = "waiting";
         delete r.match;
       } else {
-        // if next is bot, trigger server-run bots
         setTimeout(() => runBotTurns(roomCode), 300);
       }
 
@@ -321,6 +322,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ----------------- showPyar -----------------
   socket.on("showPyar", ({ roomCode }, cb) => {
     try {
       const r = rooms[roomCode];
@@ -340,26 +342,23 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("🔴 socket disconnected:", socket.id);
-    // remove from any room players list, do not auto-destroy room
     for (const code of Object.keys(rooms)) {
       const r = rooms[code];
       const idx = r.players.findIndex((p) => p.id === socket.id);
       if (idx !== -1) {
         r.players.splice(idx, 1);
         io.to(code).emit("roomUpdate", { room: code, players: r.players });
-        // if a match was running, we currently leave match running with bot replacements possible
       }
     }
   });
 });
 
-// START MATCH implementation (deal, teams, pyar apply)
+// START MATCH
 function startMatch(roomCode, { bid = 16, trumpSuit = "H" } = {}) {
   const r = rooms[roomCode];
   if (!r) return;
   if (r.autoStartTimer) { clearTimeout(r.autoStartTimer); r.autoStartTimer = null; }
   r.status = "playing";
-  // ensure 4 players
   while (r.players.length < 4) r.players.push(makeBot());
 
   const deck = makeDeck();
@@ -391,18 +390,16 @@ function startMatch(roomCode, { bid = 16, trumpSuit = "H" } = {}) {
     scores: { declarerTeamCards: [], opponentTeamCards: [] },
   };
 
-  // Apply Pyar rule before start
+  // apply pyar
   const pyarRes = applyPyarRule(match);
   match.bid = pyarRes.newBid;
-
   r.match = match;
 
-  // emit deal to players — format: hands keyed by both socket id and username (Table.jsx checks socket.id or username)
+  // prepare hands payload keyed by socket id and username
   const handsPayload = {};
   for (const p of r.players) {
     handsPayload[p.id] = hands[p.id] || [];
     handsPayload[p.name] = hands[p.id] || [];
-    // if real player, send private deal event to that socket
     if (!p.isBot && p.socketId) {
       const s = getSocket(p.socketId);
       if (s) s.emit("dealPrivate", { yourCards: hands[p.id], matchId: match.id, bid: match.bid, trumpSuit: match.trumpSuit });
@@ -412,11 +409,9 @@ function startMatch(roomCode, { bid = 16, trumpSuit = "H" } = {}) {
   io.to(roomCode).emit("matchStart", { matchId: match.id, players: r.players.map((x) => ({ id: x.id, name: x.name, isBot: !!x.isBot })), bid: match.bid, trumpSuit: match.trumpSuit });
   io.to(roomCode).emit("gameStarted", { hands: handsPayload, matchId: match.id, bid: match.bid, trumpSuit: match.trumpSuit });
 
-  // trigger bots if first players are bots
   setTimeout(() => runBotTurns(roomCode), 400);
 }
 
-// Run bot turns until human turn encountered
 function runBotTurns(roomCode) {
   const r = rooms[roomCode];
   if (!r || !r.match) return;
@@ -424,10 +419,8 @@ function runBotTurns(roomCode) {
   const currentId = m.playerOrder[m.turnIndex];
   const pObj = r.players.find((p) => p.id === currentId);
   if (pObj && pObj.isBot) {
-    // bot plays
     setTimeout(() => {
       botPlay(roomCode, currentId);
-      // continue recursion
       runBotTurns(roomCode);
     }, 300 + Math.floor(Math.random() * 400));
   } else {
@@ -435,7 +428,6 @@ function runBotTurns(roomCode) {
   }
 }
 
-// Bot play: follow suit if possible else random
 function botPlay(roomCode, botId) {
   const r = rooms[roomCode];
   if (!r || !r.match) return;
@@ -449,11 +441,10 @@ function botPlay(roomCode, botId) {
     if (follow.length) valid = follow;
   }
   const choice = valid[Math.floor(Math.random() * valid.length)];
-  // remove chosen card
   const idx = hand.findIndex((c) => c.id === choice.id);
   if (idx !== -1) hand.splice(idx, 1);
   m.currentTrick.push({ playerId: botId, card: choice });
-  io.to(roomCode).emit("cardPlayed", { username: r.players.find(x=>x.id===botId).name, card: choice });
+  io.to(roomCode).emit("cardPlayed", { username: r.players.find(x => x.id === botId).name, card: choice });
 
   m.turnIndex = (m.turnIndex + 1) % m.playerOrder.length;
 
@@ -467,7 +458,6 @@ function botPlay(roomCode, botId) {
     io.to(roomCode).emit("trickWon", { winner: winner.playerId, trick: m.trickHistory[m.trickHistory.length - 1] });
   }
 
-  // check end
   const allEmpty = Object.values(m.hands).every((h) => Array.isArray(h) ? h.length === 0 : true);
   if (allEmpty) {
     const lastWinner = m.trickHistory.length ? m.trickHistory[m.trickHistory.length - 1].winner : null;
@@ -479,12 +469,11 @@ function botPlay(roomCode, botId) {
   }
 }
 
-// Serve index fallback
+// fallback index
 app.get("*", (req, res) => {
   if (fs.existsSync(frontendIndex)) return res.sendFile(frontendIndex);
   return res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log("🚀 Server running on port", PORT));

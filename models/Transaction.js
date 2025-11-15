@@ -1,10 +1,11 @@
 const mongoose = require("mongoose");
 
-const TransactionSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  coins: { type: Number, default: 100 },  // starting coins
-  isAdmin: { type: Boolean, default: false },
-  updatedAt: { type: Date, default: Date.now }
-});
+const WalletSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true },     // ❗ unique हटाया गया
+    coins: { type: Number, default: 100 }           // starting balance
+  },
+  { timestamps: true }                               // auto createdAt, updatedAt
+);
 
-module.exports = mongoose.model("Transaction", TransactionSchema);
+module.exports = mongoose.model("Wallet", WalletSchema);

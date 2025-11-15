@@ -1,75 +1,95 @@
-require('dotenv').config();
+require("dotenv").config();
 
-const express = require('express');
-const http = require('http');
+const express = require("express");
 const path = require("path");
-const mongoose = require('mongoose');
-const cors = require('cors');
-const { Server } = require('socket.io');
+const mongoose = require("mongoose");
+const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 
-// Models
-const User = require('./backend/models/User');
-const Wallet = require('./backend/models/Transaction');
+// MODELS
+const User = require("./models/User");
+const Wallet = require("./models/Transaction");
 
-// Controllers
-const authController = require('./backend/controllers/authController');
-const walletRoutes = require('./backend/routes/walletRoutes');
+// ROUTES
+const authController = require("./controllers/authController");
+const walletRoutes = require("./routes/walletRoutes");
 
-// App
+// EXPRESS APP
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Static frontend
-app.use(express.static(path.join(__dirname, "public")));
-
-// Database
-mongoose.connect(process.env.MONGO_URI)
+// MONGO CONNECT
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch(err => console.log("❌ DB Error:", err));
+  .catch((err) => console.log("❌ Mongo Error:", err));
 
-// Auth Routes
+// AUTH ROUTES
 app.post("/api/auth/register", authController.register);
 app.post("/api/auth/login", authController.login);
 
-// Wallet Routes
+// WALLET ROUTES
 app.use("/api/wallet", walletRoutes);
 
-// Server + Socket
+// STATIC FRONTEND (VITE BUILD)
+app.use(express.static(path.join(__dirname, "frontend", "dist")));
+
+// SERVER + SOCKET
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: { origin: "*" },
+});
 
-// Game Memory
-io.serverState = { rooms: {} };
+// GAME STATE
+let rooms = {}; // room => { players, deck, turn, tableCards, scores }
 
-// Socket
-io.on("connection", socket => {
+// SOCKET CONNECTION
+io.on("connection", (socket) => {
   console.log("🟢 Connected:", socket.id);
 
+  // Join Room
   socket.on("joinRoom", ({ room, username }) => {
     socket.join(room);
     socket.data.username = username;
 
-    const players = Array.from(io.sockets.adapter.rooms.get(room) || [])
-      .map(id => ({
-        id,
-        username: io.sockets.sockets.get(id).data.username
-      }));
+    if (!rooms[room]) {
+      rooms[room] = { players: [] };
+    }
 
-    io.to(room).emit("roomUpdate", { room, players });
+    rooms[room].players.push({
+      id: socket.id,
+      username,
+    });
+
+    io.to(room).emit("roomUpdate", rooms[room].players);
   });
 
   socket.on("disconnect", () => {
     console.log("🔴 Disconnected:", socket.id);
+
+    // Clean room
+    for (const room of Object.keys(rooms)) {
+      rooms[room].players = rooms[room].players.filter(
+        (p) => p.id !== socket.id
+      );
+
+      io.to(room).emit("roomUpdate", rooms[room].players);
+
+      if (rooms[room].players.length === 0) {
+        delete rooms[room];
+      }
+    }
   });
 });
 
-// Root
+// SEND INDEX FOR ANY ROUTE
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));
 });
 
-// Start
+// START SERVER
 server.listen(process.env.PORT || 5000, () =>
-  console.log("🚀 Server Running...")
+  console.log("🚀 Server running on port", process.env.PORT || 5000)
 );

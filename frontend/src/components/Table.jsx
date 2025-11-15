@@ -150,3 +150,11 @@ export default function Table({ user, apiBase, socket }) {
     </div>
   );
 }
+// auto quick-join for guest / no-room case
+useEffect(()=> {
+  // existing listeners...
+  if (!currentRoom) {
+    // join random room (quickJoin)
+    socket.emit('quickJoin', { username: user.username || ('Guest'+Math.floor(Math.random()*1000)) });
+  }
+}, []); // keep other deps as you already have

@@ -11,8 +11,8 @@ const { Server } = require("socket.io");
 const User = require("./models/User");
 const Wallet = require("./models/Transaction");
 
-// ROUTES
-const authController = require("./controllers/authController");
+// ROUTES (FIXED)
+const authController = require("./backend/controllers/authController");
 const walletRoutes = require("./routes/walletRoutes");
 
 // EXPRESS APP

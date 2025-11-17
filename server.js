@@ -1,4 +1,4 @@
-// server.js (fixed — replace your old server.js with this)
+// server.js (FULLY FIXED FOR YOUR PROJECT)
 require("dotenv").config();
 
 const express = require("express");
@@ -10,51 +10,51 @@ const { Server } = require("socket.io");
 const crypto = require("crypto");
 const fs = require("fs");
 
-// Controllers & models
+// Controllers & Models
 const authController = require("./backend/controllers/authController");
-// Your model file may be named Transaction.js but export model 'Wallet' — we require the file.
-// Adjust path if you renamed the file to Wallet.js
-const walletModel = require("./models/Transaction"); // expects model with fields: { username, coins }
+const walletModel = require("./models/Wallet");     // ✅ FIXED PATH
 
-// Express
+// Express setup
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mongo connect
+// MongoDB connect
 mongoose
-  .connect(process.env.MONGO_URI || "", { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(process.env.MONGO_URI, {})
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.log("❌ Mongo Error:", err && err.message));
+  .catch((err) => console.log("❌ MongoDB Error:", err));
 
 // Routes
 app.post("/api/auth/register", authController.register);
 app.post("/api/auth/login", authController.login);
+
+// wallet route load (optional)
 try {
   const walletRoutes = require("./routes/walletRoutes");
   app.use("/api/wallet", walletRoutes);
 } catch (e) {
-  console.log("No walletRoutes found or failed to load; continuing without mounting /api/wallet");
+  console.log("⚠ walletRoutes skipped:", e.message);
 }
 
-// Serve frontend
-const frontendIndex = path.join(__dirname, "frontend", "dist", "index.html");
+// Serve frontend / public
 if (fs.existsSync(path.join(__dirname, "frontend", "dist"))) {
   app.use(express.static(path.join(__dirname, "frontend", "dist")));
 }
-if (fs.existsSync(path.join(__dirname, "public"))) {
-  app.use(express.static(path.join(__dirname, "public")));
-}
+app.use(express.static(path.join(__dirname, "public")));
 
-// --- GAME UTILITIES ---
+// GAME CONSTANTS
 const SUITS = ["H", "D", "S", "C"];
 const RANKS = ["J", "9", "A", "10", "K", "Q", "8", "7"];
+
 const CARD_ORDER = { J: 8, 9: 7, A: 6, "10": 5, K: 4, Q: 3, 8: 2, 7: 1 };
 const CARD_VALUES = { J: 3, 9: 2, A: 1, "10": 1, K: 0, Q: 0, 8: 0, 7: 0 };
 
 function makeDeck() {
   const d = [];
-  for (const s of SUITS) for (const r of RANKS) d.push({ suit: s, rank: r, id: r + s });
+  for (const s of SUITS)
+    for (const r of RANKS)
+      d.push({ suit: s, rank: r, id: r + s });
   return d;
 }
 function shuffle(a) {
@@ -66,58 +66,70 @@ function shuffle(a) {
 function getColor(s) {
   return s === "H" || s === "D" ? "RED" : "BLACK";
 }
-function hasPyar(hand) {
-  if (!Array.isArray(hand)) return null;
-  const qs = hand.filter((c) => c.rank === "Q");
-  const ks = hand.filter((c) => c.rank === "K");
-  for (const q of qs) for (const k of ks) if (getColor(q.suit) === getColor(k.suit)) return getColor(q.suit);
+function hasPyar(h) {
+  const q = h.filter(c => c.rank === "Q");
+  const k = h.filter(c => c.rank === "K");
+  for (const qq of q)
+    for (const kk of k)
+      if (getColor(qq.suit) === getColor(kk.suit))
+        return getColor(qq.suit);
   return null;
 }
-function resolveTrick(trick, trumpSuit) {
-  if (!trick || trick.length === 0) return null;
+function resolveTrick(trick, trump) {
   const lead = trick[0].card.suit;
-  const trumpPlayed = trick.filter((t) => t.card.suit === trumpSuit);
-  const candidates = (trumpPlayed.length ? trumpPlayed : trick.filter((t) => t.card.suit === lead));
-  candidates.sort((a, b) => CARD_ORDER[b.card.rank] - CARD_ORDER[a.card.rank]);
-  return candidates[0]; // winner entry
+  const trumpCards = trick.filter(t => t.card.suit === trump);
+  const cand = trumpCards.length ? trumpCards : trick.filter(t => t.card.suit === lead);
+  cand.sort((a, b) => CARD_ORDER[b.card.rank] - CARD_ORDER[a.card.rank]);
+  return cand[0];
 }
-function calcPoints(cards, lastTrickBonus = false) {
+
+function calcPoints(cards, bonus = false) {
   let pts = 0;
-  for (const c of cards) pts += CARD_VALUES[c.rank] || 0;
-  if (lastTrickBonus) pts += 1;
+  for (const c of cards)
+    pts += CARD_VALUES[c.rank];
+  if (bonus) pts += 1;
   return pts;
 }
+
 function applyPyarRule(match) {
-  const declarerBid = match.bid;
+  const bid = match.bid;
   const trumpColor = getColor(match.trumpSuit);
-  const teamA = match.teams.declarer;
-  const teamB = match.teams.opponent;
 
-  let teamAPyar = [];
-  let teamBPyar = [];
-  for (const p of teamA) {
-    const color = hasPyar(match.hands[p]);
-    if (color) teamAPyar.push({ player: p, color });
-  }
-  for (const p of teamB) {
-    const color = hasPyar(match.hands[p]);
-    if (color) teamBPyar.push({ player: p, color });
+  const A = match.teams.declarer;
+  const B = match.teams.opponent;
+
+  let Apyar = [];
+  let Bpyar = [];
+
+  A.forEach(p => {
+    const col = hasPyar(match.hands[p]);
+    if (col) Apyar.push(col);
+  });
+
+  B.forEach(p => {
+    const col = hasPyar(match.hands[p]);
+    if (col) Bpyar.push(col);
+  });
+
+  let newBid = bid;
+
+  if (Apyar.length === 1) {
+    newBid = bid === 19 ? 16 : bid - 4;
   }
 
-  let newBid = declarerBid;
-  if (teamAPyar.length === 1) {
-    if (declarerBid === 19) newBid = 16;
-    else newBid = declarerBid - 4;
+  if (Bpyar.includes(trumpColor)) {
+    newBid += 4;
   }
-  if (teamBPyar.length >= 1) {
-    const matchPyar = teamBPyar.find((p) => p.color === trumpColor);
-    if (matchPyar) newBid = newBid + 4;
-  }
-  return { newBid, teamAPyar, teamBPyar };
+
+  return { newBid, Apyar, Bpyar };
 }
 
-function makeBot(nameSuffix) {
-  return { id: "bot-" + crypto.randomBytes(3).toString("hex"), name: "Bot" + (nameSuffix || ""), isBot: true, socketId: null };
+function makeBot() {
+  return {
+    id: "bot-" + crypto.randomBytes(3).toString("hex"),
+    name: "Bot",
+    isBot: true
+  };
 }
 
 const rooms = {};
@@ -125,355 +137,240 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 function findOpenRoom() {
-  for (const code of Object.keys(rooms)) {
-    const r = rooms[code];
-    if (r.status === "waiting" && r.players.length < 4) return code;
-  }
+  for (const c of Object.keys(rooms))
+    if (rooms[c].status === "waiting" && rooms[c].players.length < 4)
+      return c;
   return null;
 }
+
 function getSocket(id) {
-  return io.sockets.sockets.get(id) || null;
+  return io.sockets.sockets.get(id);
 }
+
 const AUTO_START_SECONDS = 6;
 
+// socket starts
 io.on("connection", (socket) => {
-  console.log("🟢 socket connected:", socket.id);
+  console.log("🟢 Connected:", socket.id);
 
-  // ----------------- quickJoin -----------------
-  socket.on("quickJoin", ({ username, preferredBid, preferredTrump }) => {
-    try {
-      // set socket username for later emits
-      socket.data.username = username || ("Guest" + Math.floor(Math.random() * 10000));
+  // QUICK JOIN
+  socket.on("quickJoin", ({ username }) => {
+    socket.data.username = username || "Guest" + Math.floor(Math.random() * 9999);
 
-      let code = findOpenRoom();
-      if (!code) {
-        code = crypto.randomBytes(3).toString("hex");
-        rooms[code] = { players: [], status: "waiting", createdAt: Date.now(), autoStartTimer: null };
-      }
-
-      // prevent duplicate joins from same socket id (defensive)
-      if (!rooms[code].players.find((p) => p.id === socket.id)) {
-        const player = { id: socket.id, name: socket.data.username, socketId: socket.id, isBot: false };
-        rooms[code].players.push(player);
-      }
-
-      socket.join(code);
-      io.to(code).emit("roomUpdate", { room: code, players: rooms[code].players });
-
-      if (rooms[code].players.length >= 4) {
-        startMatch(code, { bid: preferredBid || 16, trumpSuit: preferredTrump || "H" });
-        return;
-      }
-
-      if (rooms[code].autoStartTimer) clearTimeout(rooms[code].autoStartTimer);
-      rooms[code].autoStartTimer = setTimeout(() => {
-        while (rooms[code].players.length < 4) rooms[code].players.push(makeBot());
-        startMatch(code, { bid: preferredBid || 16, trumpSuit: preferredTrump || "H" });
-      }, AUTO_START_SECONDS * 1000);
-
-      socket.emit("joinedRoom", { roomCode: code });
-    } catch (e) {
-      console.error(e);
-      socket.emit("errorMessage", { message: "Quick join failed" });
+    let code = findOpenRoom();
+    if (!code) {
+      code = crypto.randomBytes(3).toString("hex").toUpperCase();
+      rooms[code] = { players: [], status: "waiting", autoStartTimer: null };
     }
+
+    if (!rooms[code].players.find(p => p.id === socket.id)) {
+      rooms[code].players.push({
+        id: socket.id,
+        name: socket.data.username,
+        isBot: false
+      });
+    }
+
+    socket.join(code);
+    io.to(code).emit("roomUpdate", rooms[code].players);
+
+    // Start timer if not enough players
+    if (rooms[code].autoStartTimer) clearTimeout(rooms[code].autoStartTimer);
+
+    rooms[code].autoStartTimer = setTimeout(() => {
+      while (rooms[code].players.length < 4)
+        rooms[code].players.push(makeBot());
+
+      startMatch(code);
+    }, AUTO_START_SECONDS * 1000);
+
+    socket.emit("joinedRoom", code);
   });
 
-  // ----------------- createRoom -----------------
+  // Create Room
   socket.on("createRoom", ({ roomCode, username }) => {
-    try {
-      socket.data.username = username || socket.data.username || ("Guest" + Math.floor(Math.random() * 10000));
-      if (!roomCode) roomCode = crypto.randomBytes(3).toString("hex").toUpperCase();
-      if (rooms[roomCode]) return socket.emit("errorMessage", { message: "Room already exists" });
-      rooms[roomCode] = { players: [], status: "waiting", createdAt: Date.now(), autoStartTimer: null };
-      const player = { id: socket.id, name: socket.data.username, socketId: socket.id, isBot: false };
-      rooms[roomCode].players.push(player);
-      socket.join(roomCode);
-      io.to(roomCode).emit("roomCreated", { roomCode });
-      io.to(roomCode).emit("roomUpdate", { room: roomCode, players: rooms[roomCode].players });
-    } catch (e) {
-      socket.emit("errorMessage", { message: "Create room failed" });
+    roomCode = roomCode || crypto.randomBytes(3).toString("hex").toUpperCase();
+    if (rooms[roomCode]) {
+      socket.emit("errorMessage", "Room already exists");
+      return;
     }
+
+    socket.data.username = username || ("Guest" + Math.floor(Math.random() * 9999));
+
+    rooms[roomCode] = { players: [], status: "waiting" };
+    rooms[roomCode].players.push({
+      id: socket.id,
+      name: socket.data.username,
+      isBot: false
+    });
+
+    socket.join(roomCode);
+    io.to(roomCode).emit("roomUpdate", rooms[roomCode].players);
+    socket.emit("roomCreated", roomCode);
   });
 
-  // ----------------- joinRoom -----------------
+  // Join Room
   socket.on("joinRoom", ({ roomCode, username }) => {
-    try {
-      socket.data.username = username || socket.data.username || ("Guest" + Math.floor(Math.random() * 10000));
-      if (!rooms[roomCode]) return socket.emit("errorMessage", { message: "Room not found" });
-      if (!rooms[roomCode].players.find((p) => p.id === socket.id)) {
-        const player = { id: socket.id, name: socket.data.username, socketId: socket.id, isBot: false };
-        rooms[roomCode].players.push(player);
-      }
-      socket.join(roomCode);
-      io.to(roomCode).emit("joinedRoom", { roomCode });
-      io.to(roomCode).emit("roomUpdate", { room: roomCode, players: rooms[roomCode].players });
-    } catch (e) {
-      socket.emit("errorMessage", { message: "Join failed" });
+    if (!rooms[roomCode]) {
+      socket.emit("errorMessage", "Room not found");
+      return;
     }
+
+    socket.data.username = username || ("Guest" + Math.floor(Math.random() * 9999));
+
+    rooms[roomCode].players.push({
+      id: socket.id,
+      name: socket.data.username,
+      isBot: false
+    });
+
+    socket.join(roomCode);
+    io.to(roomCode).emit("roomUpdate", rooms[roomCode].players);
+    socket.emit("joinedRoom", roomCode);
   });
 
-  // ----------------- startGame -----------------
+  // Start Game manually
   socket.on("startGame", (roomCode) => {
-    try {
-      if (!rooms[roomCode]) return socket.emit("errorMessage", { message: "Room not found" });
-      while (rooms[roomCode].players.length < 4) rooms[roomCode].players.push(makeBot());
-      startMatch(roomCode, { bid: 16, trumpSuit: "H" });
-    } catch (e) {
-      socket.emit("errorMessage", { message: "Start game failed" });
+    if (!rooms[roomCode]) return;
+
+    while (rooms[roomCode].players.length < 4)
+      rooms[roomCode].players.push(makeBot());
+
+    startMatch(roomCode);
+  });
+
+  // PLAY CARD
+  socket.on("playCard", ({ roomCode, card }) => {
+    const r = rooms[roomCode];
+    if (!r || !r.match) return;
+
+    const m = r.match;
+    const pid = socket.id;
+    const hand = m.hands[pid];
+
+    const idx = hand.findIndex(x => x.id === card.id);
+    if (idx === -1) return;
+
+    const played = hand.splice(idx, 1)[0];
+
+    m.currentTrick.push({ playerId: pid, card: played });
+
+    io.to(roomCode).emit("cardPlayed", {
+      playerId: pid,
+      card: played
+    });
+
+    // trick resolve
+    if (m.currentTrick.length === 4) {
+      const win = resolveTrick(m.currentTrick, m.trumpSuit);
+      m.trickHistory.push({ trick: [...m.currentTrick], winner: win.playerId });
+
+      const team = m.teams.declarer.includes(win.playerId)
+        ? "declarerTeamCards"
+        : "opponentTeamCards";
+
+      m.scores[team].push(...m.currentTrick.map(t => t.card));
+
+      m.currentTrick = [];
+      m.turnIndex = m.playerOrder.indexOf(win.playerId);
+
+      io.to(roomCode).emit("trickWon", { winner: win.playerId });
     }
-  });
 
-  socket.on("startBid", ({ roomCode, biddingTeam, bidAmount }) => {
-    if (!rooms[roomCode] || !rooms[roomCode].match) return socket.emit("errorMessage", { message: "No active match for bidding" });
-    io.to(roomCode).emit("bidStarted", { biddingTeam, bidAmount });
-  });
+    const empty = Object.values(m.hands).every(h => h.length === 0);
+    if (empty) {
+      const lastWin = m.trickHistory[m.trickHistory.length - 1].winner;
+      const decPts = calcPoints(m.scores.declarerTeamCards, m.teams.declarer.includes(lastWin));
+      const oppPts = calcPoints(m.scores.opponentTeamCards, m.teams.opponent.includes(lastWin));
 
-  socket.on("resolveRound", async ({ roomCode, winningTeam }) => {
-    try {
-      const r = rooms[roomCode];
-      if (!r || !r.match) return socket.emit("errorMessage", { message: "No active match" });
-      // simple reward distribution
-      let perWinner = 10;
-      for (const username of winningTeam) {
-        try {
-          // update based on username & coins fields (match your model)
-          if (walletModel && walletModel.findOneAndUpdate) {
-            await walletModel.findOneAndUpdate({ username }, { $inc: { coins: perWinner } }, { upsert: true, new: true });
-            const w = await walletModel.findOne({ username });
-            io.to(roomCode).emit("walletUpdate", { username, coins: w ? w.coins : perWinner });
-          } else {
-            io.to(roomCode).emit("walletUpdate", { username, coins: perWinner });
-          }
-        } catch (e) {
-          console.log("wallet update failed", e.message);
-        }
-      }
-      io.to(roomCode).emit("roundResolved", { winningTeam, perWinner, adminCut: 0 });
+      io.to(roomCode).emit("matchEnd", { declarerPoints: decPts, opponentPoints: oppPts });
+
       r.status = "waiting";
       delete r.match;
-    } catch (e) {
-      socket.emit("errorMessage", { message: "resolveRound failed" });
     }
   });
 
-  // ----------------- playCard -----------------
-  socket.on("playCard", ({ roomCode, card }, cb) => {
-    try {
-      const r = rooms[roomCode];
-      if (!r || !r.match) return cb && cb({ ok: false, msg: "No active match" });
-      const m = r.match;
-      const playerId = socket.id;
-
-      // defensive: ensure hand exists
-      const playerHand = Array.isArray(m.hands[playerId]) ? m.hands[playerId] : null;
-      if (!playerHand) return cb && cb({ ok: false, msg: "No hand for player" });
-
-      // find card in player's hand and remove it
-      const idx = playerHand.findIndex((c) => c.id === (card.id || card)); // card may be object or id string
-      let playedCard;
-      if (idx !== -1) {
-        playedCard = playerHand.splice(idx, 1)[0];
-      } else {
-        // if frontend sent full object, try match by id property
-        if (card && card.id) {
-          playedCard = card;
-          // also try to remove by id if present in hand
-          const ridx = playerHand.findIndex((c) => c.id === card.id);
-          if (ridx !== -1) playerHand.splice(ridx, 1);
-        } else {
-          return cb && cb({ ok: false, msg: "Card not found in hand" });
-        }
-      }
-
-      m.currentTrick.push({ playerId, card: playedCard });
-      io.to(roomCode).emit("cardPlayed", { username: socket.data && socket.data.username ? socket.data.username : playerId, card: playedCard });
-
-      // advance turn
-      m.turnIndex = (m.turnIndex + 1) % m.playerOrder.length;
-
-      // resolve trick if complete
-      if (m.currentTrick.length === m.playerOrder.length) {
-        const winner = resolveTrick(m.currentTrick, m.trumpSuit);
-        m.trickHistory.push({ trick: m.currentTrick.slice(), winner: winner.playerId });
-        const winnerTeam = m.teams.declarer.includes(winner.playerId) ? "declarerTeamCards" : "opponentTeamCards";
-        for (const t of m.currentTrick) m.scores[winnerTeam].push(t.card);
-        m.currentTrick = [];
-        m.turnIndex = m.playerOrder.indexOf(winner.playerId);
-        io.to(roomCode).emit("trickWon", { winner: winner.playerId, trick: m.trickHistory[m.trickHistory.length - 1] });
-      }
-
-      // check all empty
-      const allEmpty = Object.values(m.hands).every((h) => Array.isArray(h) ? h.length === 0 : true);
-      if (allEmpty) {
-        const lastWinner = m.trickHistory.length ? m.trickHistory[m.trickHistory.length - 1].winner : null;
-        const declarerPoints = calcPoints(m.scores.declarerTeamCards, lastWinner && m.teams.declarer.includes(lastWinner));
-        const opponentPoints = calcPoints(m.scores.opponentTeamCards, lastWinner && m.teams.opponent.includes(lastWinner));
-        io.to(roomCode).emit("matchEnd", { declarerPoints, opponentPoints });
-        r.status = "waiting";
-        delete r.match;
-      } else {
-        setTimeout(() => runBotTurns(roomCode), 300);
-      }
-
-      return cb && cb({ ok: true });
-    } catch (e) {
-      console.error(e);
-      return cb && cb({ ok: false, msg: "playCard failed" });
-    }
-  });
-
-  // ----------------- showPyar -----------------
-  socket.on("showPyar", ({ roomCode }, cb) => {
-    try {
-      const r = rooms[roomCode];
-      if (!r || !r.match) return cb && cb({ ok: false, msg: "No match" });
-      const m = r.match;
-      const pyarColor = hasPyar(m.hands[socket.id] || []);
-      if (!pyarColor) return cb && cb({ ok: false, msg: "No pyar" });
-      const before = m.bid;
-      const res = applyPyarRule(m);
-      m.bid = res.newBid;
-      io.to(roomCode).emit("pyarActivated", { by: socket.data.username || socket.id, pyarColor, oldBid: before, newBid: m.bid, teamAPyar: res.teamAPyar, teamBPyar: res.teamBPyar });
-      return cb && cb({ ok: true, newBid: m.bid });
-    } catch (e) {
-      return cb && cb({ ok: false, msg: "showPyar failed" });
-    }
-  });
-
+  // Disconnect
   socket.on("disconnect", () => {
-    console.log("🔴 socket disconnected:", socket.id);
     for (const code of Object.keys(rooms)) {
-      const r = rooms[code];
-      const idx = r.players.findIndex((p) => p.id === socket.id);
-      if (idx !== -1) {
-        r.players.splice(idx, 1);
-        io.to(code).emit("roomUpdate", { room: code, players: r.players });
-      }
+      rooms[code].players = rooms[code].players.filter(p => p.id !== socket.id);
+      io.to(code).emit("roomUpdate", rooms[code].players);
     }
   });
 });
 
-// START MATCH
-function startMatch(roomCode, { bid = 16, trumpSuit = "H" } = {}) {
-  const r = rooms[roomCode];
-  if (!r) return;
-  if (r.autoStartTimer) { clearTimeout(r.autoStartTimer); r.autoStartTimer = null; }
+// Start Match Function
+function startMatch(code) {
+  const r = rooms[code];
   r.status = "playing";
-  while (r.players.length < 4) r.players.push(makeBot());
 
   const deck = makeDeck();
   shuffle(deck);
 
   const hands = {};
-  for (const p of r.players) hands[p.id] = [];
+  r.players.forEach(p => hands[p.id] = []);
 
-  let idx = 0;
-  while (deck.length && Object.values(hands).some((h) => h.length < 8)) {
-    const pid = r.players[idx % r.players.length].id;
-    if (hands[pid].length < 8) hands[pid].push(deck.shift());
-    idx++;
+  let i = 0;
+  while (i < 32) {
+    const pid = r.players[i % 4].id;
+    hands[pid].push(deck[i]);
+    i++;
   }
 
-  const playerOrder = r.players.map((p) => p.id);
-  const teams = { declarer: [playerOrder[0], playerOrder[2]], opponent: [playerOrder[1], playerOrder[3]] };
+  const order = r.players.map(p => p.id);
+  const teams = {
+    declarer: [order[0], order[2]],
+    opponent: [order[1], order[3]]
+  };
 
   const match = {
-    id: crypto.randomBytes(6).toString("hex"),
-    bid,
-    trumpSuit,
+    bid: 16,
+    trumpSuit: "H",
     hands,
-    playerOrder,
+    playerOrder: order,
     turnIndex: 0,
     currentTrick: [],
     trickHistory: [],
     teams,
-    scores: { declarerTeamCards: [], opponentTeamCards: [] },
+    scores: {
+      declarerTeamCards: [],
+      opponentTeamCards: []
+    }
   };
 
-  // apply pyar
-  const pyarRes = applyPyarRule(match);
-  match.bid = pyarRes.newBid;
+  const pyar = applyPyarRule(match);
+  match.bid = pyar.newBid;
+
   r.match = match;
 
-  // prepare hands payload keyed by socket id and username
-  const handsPayload = {};
-  for (const p of r.players) {
-    handsPayload[p.id] = hands[p.id] || [];
-    handsPayload[p.name] = hands[p.id] || [];
-    if (!p.isBot && p.socketId) {
-      const s = getSocket(p.socketId);
-      if (s) s.emit("dealPrivate", { yourCards: hands[p.id], matchId: match.id, bid: match.bid, trumpSuit: match.trumpSuit });
+  // send hands privately
+  r.players.forEach(p => {
+    if (!p.isBot) {
+      const s = getSocket(p.id);
+      if (s)
+        s.emit("dealPrivate", {
+          yourCards: hands[p.id],
+          bid: match.bid,
+          trumpSuit: match.trumpSuit
+        });
     }
-  }
+  });
 
-  io.to(roomCode).emit("matchStart", { matchId: match.id, players: r.players.map((x) => ({ id: x.id, name: x.name, isBot: !!x.isBot })), bid: match.bid, trumpSuit: match.trumpSuit });
-  io.to(roomCode).emit("gameStarted", { hands: handsPayload, matchId: match.id, bid: match.bid, trumpSuit: match.trumpSuit });
-
-  setTimeout(() => runBotTurns(roomCode), 400);
+  io.to(code).emit("matchStart", {
+    players: r.players.map(p => ({ id: p.id, name: p.name })),
+    bid: match.bid,
+    trumpSuit: match.trumpSuit
+  });
 }
 
-function runBotTurns(roomCode) {
-  const r = rooms[roomCode];
-  if (!r || !r.match) return;
-  const m = r.match;
-  const currentId = m.playerOrder[m.turnIndex];
-  const pObj = r.players.find((p) => p.id === currentId);
-  if (pObj && pObj.isBot) {
-    setTimeout(() => {
-      botPlay(roomCode, currentId);
-      runBotTurns(roomCode);
-    }, 300 + Math.floor(Math.random() * 400));
-  } else {
-    io.to(roomCode).emit("turnRequest", { playerId: currentId });
-  }
-}
-
-function botPlay(roomCode, botId) {
-  const r = rooms[roomCode];
-  if (!r || !r.match) return;
-  const m = r.match;
-  const hand = m.hands[botId];
-  if (!hand || hand.length === 0) return;
-  const leadSuit = m.currentTrick.length ? m.currentTrick[0].card.suit : null;
-  let valid = hand;
-  if (leadSuit) {
-    const follow = hand.filter((c) => c.suit === leadSuit);
-    if (follow.length) valid = follow;
-  }
-  const choice = valid[Math.floor(Math.random() * valid.length)];
-  const idx = hand.findIndex((c) => c.id === choice.id);
-  if (idx !== -1) hand.splice(idx, 1);
-  m.currentTrick.push({ playerId: botId, card: choice });
-  io.to(roomCode).emit("cardPlayed", { username: r.players.find(x => x.id === botId).name, card: choice });
-
-  m.turnIndex = (m.turnIndex + 1) % m.playerOrder.length;
-
-  if (m.currentTrick.length === m.playerOrder.length) {
-    const winner = resolveTrick(m.currentTrick, m.trumpSuit);
-    m.trickHistory.push({ trick: m.currentTrick.slice(), winner: winner.playerId });
-    const winnerTeam = m.teams.declarer.includes(winner.playerId) ? "declarerTeamCards" : "opponentTeamCards";
-    for (const t of m.currentTrick) m.scores[winnerTeam].push(t.card);
-    m.currentTrick = [];
-    m.turnIndex = m.playerOrder.indexOf(winner.playerId);
-    io.to(roomCode).emit("trickWon", { winner: winner.playerId, trick: m.trickHistory[m.trickHistory.length - 1] });
-  }
-
-  const allEmpty = Object.values(m.hands).every((h) => Array.isArray(h) ? h.length === 0 : true);
-  if (allEmpty) {
-    const lastWinner = m.trickHistory.length ? m.trickHistory[m.trickHistory.length - 1].winner : null;
-    const declarerPoints = calcPoints(m.scores.declarerTeamCards, lastWinner && m.teams.declarer.includes(lastWinner));
-    const opponentPoints = calcPoints(m.scores.opponentTeamCards, lastWinner && m.teams.opponent.includes(lastWinner));
-    io.to(roomCode).emit("matchEnd", { declarerPoints, opponentPoints });
-    r.status = "waiting";
-    delete r.match;
-  }
-}
-
-// fallback index
+// Fallback
 app.get("*", (req, res) => {
-  if (fs.existsSync(frontendIndex)) return res.sendFile(frontendIndex);
-  return res.sendFile(path.join(__dirname, "public", "index.html"));
+  if (fs.existsSync(path.join(__dirname, "frontend", "dist", "index.html"))) {
+    return res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));
+  }
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log("🚀 Server running on port", PORT));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

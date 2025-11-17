@@ -1,73 +1,68 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import io from "socket.io-client";
 
-const socket = io("/", {
-  transports: ["websocket"],
-});
+const socket = io("/", { transports: ["websocket"] });
 
+// AUTO JOIN SYSTEM + AUTO BOT FILL + CARD DEALING BUILT-IN
 export default function Table() {
-
-  const [status, setStatus] = useState("Connecting…");
-  const [room, setRoom] = useState(null);
   const [players, setPlayers] = useState([]);
   const [myCards, setMyCards] = useState([]);
+  const [status, setStatus] = useState("Connecting...");
 
   useEffect(() => {
-    socket.on("connect", () => {
-      setStatus("Connected. Joining match…");
+    // Step 1: Auto Join Room
+    socket.emit("quickJoin");
 
-      socket.emit("quickJoin", { username: "Player" + Math.floor(Math.random()*9999) });
+    socket.on("joinedRoom", (roomData) => {
+      setPlayers(roomData.players);
+      setStatus("Waiting for players...");
     });
 
-    socket.on("joinedRoom", (code) => {
-      setRoom(code);
-      setStatus("Waiting for players…");
+    // Step 2: Bots added
+    socket.on("botAdded", (data) => {
+      setPlayers(data.players);
     });
 
-    socket.on("roomUpdate", (list) => {
-      setPlayers(list);
-      if (list.length === 4) {
-        setStatus("Match starting…");
-      }
+    // Step 3: Game starts automatically
+    socket.on("gameStarted", (data) => {
+      setStatus("Game Started");
+      setPlayers(data.players);
     });
 
-    socket.on("dealPrivate", ({ cards }) => {
+    // Step 4: Cards received
+    socket.on("dealCards", (cards) => {
       setMyCards(cards);
-      setStatus("Your cards received");
-    });
-
-    socket.on("matchStart", () => {
-      setStatus("Match Started!");
     });
 
     return () => {
-      socket.off("connect");
       socket.off("joinedRoom");
-      socket.off("roomUpdate");
-      socket.off("dealPrivate");
-      socket.off("matchStart");
+      socket.off("botAdded");
+      socket.off("gameStarted");
+      socket.off("dealCards");
     };
-
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>{status}</h2>
+    <div className="table-container">
+      <h1>🃏 Teen Patti Multiplayer</h1>
+      <h3>{status}</h3>
 
-      <h3>Room Code: {room || "Loading…"}</h3>
+      {/* Players */}
+      <div className="players">
+        {players.map((p, i) => (
+          <div className="player-card" key={i}>
+            <h3>{p.name}</h3>
+            <p>{p.isBot ? "🤖 Bot" : "🧑 Player"}</p>
+          </div>
+        ))}
+      </div>
 
-      <h3>Players:</h3>
-      {players.map(p => (
-        <div key={p.id}>
-          {p.name} {p.isBot ? "(Bot)" : ""}
-        </div>
-      ))}
-
-      <h3>Your Cards:</h3>
-      <div style={{ display: "flex", gap: 10 }}>
-        {myCards.map(c => (
-          <div key={c.id} style={{ padding: 10, border: "1px solid black" }}>
-            {c.id}
+      {/* My Cards */}
+      <h2 style={{ marginTop: "30px" }}>Your Cards</h2>
+      <div className="cards">
+        {myCards.map((c, i) => (
+          <div className="card" key={i}>
+            {c}
           </div>
         ))}
       </div>

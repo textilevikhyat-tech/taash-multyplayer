@@ -1,10 +1,11 @@
-const User = require('../models/User');
-const Wallet = require('../models/Transaction');
+const User = require('../../models/User');
+const Wallet = require('../../models/Wallet');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// REGISTER
 exports.register = async (req, res) => {
   const { username, password } = req.body;
 
@@ -21,7 +22,6 @@ exports.register = async (req, res) => {
 
     await newUser.save();
 
-    // create wallet
     const wallet = new Wallet({ username, coins: 100 });
     await wallet.save();
 
@@ -33,7 +33,7 @@ exports.register = async (req, res) => {
   }
 };
 
-
+// LOGIN
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 

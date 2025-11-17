@@ -1,71 +1,28 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const Wallet = require('../models/Transaction');
-
+// routes/walletRoutes.js
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const Wallet = require("../models/Wallet");
 const router = express.Router();
 
-// Middleware: verify token
-const auth = (req, res, next) => {
-  const header = req.headers.authorization;
-
-  if (!header)
-    return res.status(401).json({ message: "No token provided" });
-
+const auth = (req,res,next) => {
+  const h = req.headers.authorization;
+  if(!h) return res.status(401).json({ message: "No token" });
   try {
-    const token = header.split(" ")[1];
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const token = h.split(" ")[1];
+    req.user = jwt.verify(token, process.env.JWT_SECRET || "replace_this_secret");
     next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
-  }
+  } catch (e) { return res.status(401).json({ message: "Invalid token" }); }
 };
 
-// -------- GET COINS --------
-router.get("/", auth, async (req, res) => {
-  try {
-    const wallet = await Wallet.findOne({ username: req.user.username });
-    return res.json({ coins: wallet?.coins || 0 });
-  } catch (err) {
-    return res.status(500).json({ message: "Server error" });
-  }
+router.get("/", auth, async (req,res) => {
+  const w = await Wallet.findOne({ username: req.user.username });
+  return res.json({ coins: w ? w.coins : 0 });
 });
 
-// -------- ADD COINS --------
-router.post("/add", auth, async (req, res) => {
-  try {
-    const { coins } = req.body;
-
-    if (typeof coins !== "number")
-      return res.status(400).json({ message: "Invalid coins value" });
-
-    const wallet = await Wallet.findOne({ username: req.user.username });
-    wallet.coins += coins;
-
-    await wallet.save();
-    return res.json({ coins: wallet.coins });
-
-  } catch (err) {
-    return res.status(500).json({ message: "Server error" });
-  }
-});
-
-// -------- DEDUCT COINS --------
-router.post("/deduct", auth, async (req, res) => {
-  try {
-    const { coins } = req.body;
-
-    if (typeof coins !== "number")
-      return res.status(400).json({ message: "Invalid coins value" });
-
-    const wallet = await Wallet.findOne({ username: req.user.username });
-    wallet.coins = Math.max(wallet.coins - coins, 0);
-
-    await wallet.save();
-    return res.json({ coins: wallet.coins });
-
-  } catch (err) {
-    return res.status(500).json({ message: "Server error" });
-  }
+router.post("/add", auth, async (req,res) => {
+  const { coins } = req.body;
+  const w = await Wallet.findOneAndUpdate({ username: req.user.username }, { $inc: { coins } }, { upsert: true, new: true });
+  return res.json({ coins: w.coins });
 });
 
 module.exports = router;

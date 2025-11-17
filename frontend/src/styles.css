@@ -1,13 +1,48 @@
-body{margin:0;font-family:Arial;background:linear-gradient(180deg,#071126,#001f3f);color:#fff}
-.login-wrap{height:100vh;display:flex;align-items:center;justify-content:center}
-.card{background:rgba(255,255,255,0.03);padding:20px;border-radius:10px;width:320px;text-align:center}
-.card input{width:100%;padding:8px;margin:8px 0;border-radius:8px;border:1px solid #333;background:transparent;color:#fff}
-.card button{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:none;background:#ffcc33;color:#000;font-weight:700}
-.table-wrap{padding:12px}
-.topbar{display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:10px}
-.controls input{padding:8px;border-radius:6px;margin-right:6px}
-.controls button{padding:8px;margin-right:6px;border-radius:6px;background:#00b4d8;border:none;color:#fff}
-.players .player{display:inline-block;background:rgba(255,255,255,0.06);padding:6px;border-radius:6px;margin-right:6px}
-.hand-cards{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.card{width:64px;height:92px;background:#fff;color:#000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer}
-.log{margin-top:12px;background:rgba(255,255,255,0.03);padding:8px;border-radius:6px;height:140px;overflow:auto}
+body {
+  margin: 0;
+  background: #044;
+  font-family: Arial, sans-serif;
+  color: white;
+}
+
+.table-container {
+  width: 100vw;
+  height: 100vh;
+  background: url("/table-bg.png");
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.players {
+  margin-top: 20px;
+  display: flex;
+  gap: 20px;
+}
+
+.player-card {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  min-width: 150px;
+  text-align: center;
+}
+
+.cards {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.card {
+  width: 70px;
+  height: 100px;
+  background: white;
+  color: black;
+  border-radius: 8px;
+  font-size: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

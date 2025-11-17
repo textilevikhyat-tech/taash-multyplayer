@@ -1,48 +1,13 @@
-body {
-  margin: 0;
-  background: #044;
-  font-family: Arial, sans-serif;
-  color: white;
-}
+import React, { useState } from "react";
+import Table from "./components/Table";
+import Login from "./components/Login";
 
-.table-container {
-  width: 100vw;
-  height: 100vh;
-  background: url("/table-bg.png");
-  background-size: cover;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+export default function App(){
+  const [user, setUser] = useState(() => {
+    const username = localStorage.getItem("username");
+    const token = localStorage.getItem("token");
+    return token && username ? { username, token } : null;
+  });
 
-.players {
-  margin-top: 20px;
-  display: flex;
-  gap: 20px;
-}
-
-.player-card {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 15px;
-  border-radius: 10px;
-  min-width: 150px;
-  text-align: center;
-}
-
-.cards {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-}
-
-.card {
-  width: 70px;
-  height: 100px;
-  background: white;
-  color: black;
-  border-radius: 8px;
-  font-size: 30px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  return user ? <Table user={user} /> : <Login onLogin={(u,t)=> setUser({ username:u, token:t })} />;
 }

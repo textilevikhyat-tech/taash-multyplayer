@@ -1,190 +1,191 @@
 import React, { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 
+// connect to same origin
 const socket = io("/", { transports: ["websocket"] });
 
-export default function Table({ user, onLogout }) {
-  const [status, setStatus] = useState("Connecting...");
+const suitGlyph = {
+  H: "♥",
+  D: "♦",
+  S: "♠",
+  C: "♣"
+};
+
+function cardColor(suit){
+  return (suit === 'H' || suit === 'D') ? 'suit-red' : 'suit-black';
+}
+
+export default function Table({ username }){
   const [room, setRoom] = useState(null);
   const [players, setPlayers] = useState([]);
   const [myCards, setMyCards] = useState([]);
   const [log, setLog] = useState([]);
-  const didQuickJoin = useRef(false);
+  const [trump, setTrump] = useState(null);
+  const joined = useRef(false);
 
-  useEffect(()=> {
-    socket.on("connect", ()=> {
-      setStatus("Connected");
-      if(!didQuickJoin.current){
-        socket.emit("quickJoin", { username: user.username });
-        didQuickJoin.current = true;
-        addLog("Quick-join sent");
+  useEffect(()=>{
+    socket.on('connect', ()=> {
+      addLog('Connected to server');
+      if(!joined.current){
+        socket.emit('quickJoin', { username });
+        joined.current = true;
       }
     });
 
-    socket.on("joinedRoom", (d) => {
+    socket.on('joinedRoom', (d)=>{
       setRoom(d.room);
       setPlayers(d.players || []);
-      addLog(`Joined room ${d.room}`);
+      addLog('Joined room ' + d.room);
     });
 
-    socket.on("roomCreated", ({ room }) => {
-      setRoom(room);
-      addLog(`Room created: ${room}`);
+    socket.on('roomUpdate', ({ room: r, players: pls } = {})=>{
+      if(typeof r === 'undefined' && Array.isArray(arguments[0])){
+        const arg = arguments[0];
+        setPlayers(arg.players || arg);
+      } else {
+        if(r) setRoom(r);
+        if(pls) setPlayers(pls);
+      }
+      addLog('Room updated');
     });
 
-    socket.on("roomUpdate", (list) => {
-      setPlayers(list || []);
-      addLog(`Room updated (${(list||[]).length} players)`);
+    socket.on('dealPrivate', ({ cards, matchId, trump })=>{
+      // cards might be objects; map to id string
+      const list = (cards||[]).map(c => (typeof c === 'string' ? c : c.id));
+      setMyCards(list);
+      setTrump(trump);
+      addLog('Cards dealt');
     });
 
-    socket.on("dealPrivate", ({ cards }) => {
-      // cards could be objects {id,suit,rank}
-      const flat = (cards || []).map(c => (typeof c === "string" ? c : `${c.rank}${c.suit}`));
-      setMyCards(flat);
-      addLog("Cards dealt to you");
+    socket.on('matchStart', (d)=>{
+      setTrump(d.trump || trump);
+      addLog('Match started');
     });
 
-    socket.on("matchStart", (d) => {
-      addLog("Match started");
+    socket.on('cardPlayed', ({ username: who, card })=>{
+      const id = typeof card === 'string' ? card : (card.id || (card.rank+card.suit));
+      addLog(`${who} played ${id}`);
     });
 
-    socket.on("cardPlayed", ({ username, card }) => {
-      addLog(`${username} played ${card.rank ? (card.rank+card.suit) : card}`);
+    socket.on('trickWon', ({ winner })=>{
+      addLog('Trick won by ' + winner);
     });
 
-    socket.on("errorMessage", ({ message }) => {
-      addLog("Error: " + message);
-      alert(message);
+    socket.on('matchEnd', ({ declarerPoints, opponentPoints })=>{
+      addLog(`Match ended — declarer: ${declarerPoints}, opponent: ${opponentPoints}`);
+      setMyCards([]);
     });
 
-    socket.on("disconnect", ()=> setStatus("Disconnected"));
+    socket.on('errorMessage', ({ message })=>{
+      addLog('Error: ' + message);
+    });
 
-    return () => socket.off();
+    return ()=> socket.off();
   }, []);
 
-  function addLog(t){
-    setLog(l => [ `${new Date().toLocaleTimeString()} — ${t}`, ...l].slice(0,80));
+  function addLog(txt){ setLog(l => [new Date().toLocaleTimeString() + " • " + txt, ...l].slice(0,80)); }
+
+  function playCard(index){
+    if(index < 0 || index >= myCards.length) return;
+    const id = myCards[index];
+    const rank = id.slice(0, id.length-1);
+    const suit = id.slice(-1);
+    socket.emit('playCard', { roomCode: room, card: { id, rank, suit } }, (res)=>{
+      if(res && res.ok){
+        setMyCards(prev => prev.filter((_,i)=>i!==index));
+      } else {
+        addLog('Play rejected: ' + (res && res.msg));
+      }
+    });
   }
 
   function createRoom(){
     const code = (Math.random().toString(36).slice(2,8)).toUpperCase();
-    socket.emit("createRoom", { roomCode: code, username: user.username });
+    socket.emit('createRoom', { roomCode: code, username });
+    addLog('Creating room ' + code);
   }
-
-  function joinRoom(){
-    const code = prompt("Enter room code:");
-    if(!code) return;
-    socket.emit("joinRoom", { roomCode: code, username: user.username });
+  function promptJoin(){
+    const code = prompt('Enter room code:');
+    if(code) socket.emit('joinRoom', { roomCode: code, username });
   }
-
   function startGame(){
-    if(!room) return alert("Join or create a room first");
-    socket.emit("startGame", room);
-  }
-
-  function playCard(cardIdx){
-    const c = myCards[cardIdx];
-    if(!c) return;
-    // send card id string; server expects object or id - both handled
-    socket.emit("playCard", { roomCode: room, card: { id: c, rank: c.slice(0,-1), suit: c.slice(-1) } });
-    // locally remove
-    setMyCards(cards => cards.filter((_,i)=>i!==cardIdx));
+    if(!room) return alert('Join or create a room first');
+    socket.emit('startGame', room);
   }
 
   return (
     <div className="container">
       <div className="header">
-        <div className="brand">
-          <div className="logo">29</div>
-          <div>
-            <div className="title">Taash Casino — 29 Multiplayer</div>
-            <div className="small">Welcome, <strong>{user.username}</strong></div>
-          </div>
+        <div>
+          <div className="title">Taash Multiplayer — Casino Style</div>
+          <div className="small">User: <strong>{username}</strong> • Room: <strong>{room || "-"}</strong></div>
         </div>
-
-        <div className="top-actions">
-          <div className="chips center"> <div className="chip">29</div> </div>
-          <div style={{textAlign:"right"}}>
-            <div className="small">Room: <strong>{room || "-"}</strong></div>
-            <div style={{marginTop:6}}>
-              <button className="btn" onClick={createRoom}>Create</button>
-              <button className="btn secondary" onClick={joinRoom}>Join</button>
-              <button className="btn gold" onClick={startGame}>Start</button>
-              <button className="btn secondary" onClick={()=>{ onLogout(); }}>Logout</button>
-            </div>
-          </div>
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn" onClick={createRoom}>Create</button>
+          <button className="btn" onClick={promptJoin}>Join</button>
+          <button className="btn" onClick={startGame}>Start</button>
         </div>
       </div>
 
-      <div className="table-area">
-        <div>
-          <div className="table-card panel">
-            <div className="table-stage center">
-              <div className="table-green">
-                <div style={{color:"#fff", fontWeight:800, fontSize:20}}>TAASH TABLE</div>
-              </div>
-            </div>
+      <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+        <div style={{flex:1}} className="panel">
+          <div className="table-area">
+            <div className="table-center">TABLE • TRUMP: <span style={{marginLeft:8,fontWeight:900}}>{trump || '-'}</span></div>
+          </div>
 
-            <div className="players-row" style={{marginTop:12}}>
-              {players.concat(Array.from({length: Math.max(0,4 - players.length)})).slice(0,4).map((p,idx)=> {
-                if(!p) return <div key={idx} className="player-box panel small center">Waiting...</div>;
+          <div className="players-row">
+            {Array.from({length:4}).map((_,i)=>{
+              const p = players[i];
+              return (
+                <div key={i} className="player-box">
+                  <div className="player-name">{p ? p.name : 'Waiting...'}</div>
+                  <div className="player-sub">{p ? (p.isBot ? 'Bot' : 'Human') : ''}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{marginTop:12}}>
+            <h4>Your Hand</h4>
+            <div className="cards">
+              {myCards.length ? myCards.map((c, i) => {
+                const rank = c.slice(0, c.length-1);
+                const suit = c.slice(-1);
                 return (
-                  <div key={p.id} className="player-box">
-                    <div className="player-name">{p.name}</div>
-                    <div className="player-sub">{p.isBot ? "🤖 Bot" : "👤 Player"}</div>
+                  <div key={c+i} className="card" onClick={()=>playCard(i)}>
+                    <div className={"top "+cardColor(suit)}>{rank}</div>
+                    <div className={"center "+cardColor(suit)} style={{fontSize:28}}>{suitGlyph[suit]}</div>
+                    <div className={"bottom "+cardColor(suit)} style={{textAlign:'right'}}>{rank}</div>
                   </div>
                 );
-              })}
+              }) : <div className="small">No cards yet — wait for deal</div>}
             </div>
+          </div>
 
-            <div className="hand-area">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div><strong>Your Hand</strong></div>
-                <div className="small">Tap a card to play</div>
-              </div>
-
-              <div className="cards" style={{marginTop:12}}>
-                {myCards.length ? myCards.map((c,i)=>(
-                  <div key={i} className="card" onClick={()=>playCard(i)}>
-                    <div className="rank">{c.slice(0,-1)}</div>
-                    <div className="suit">{c.slice(-1)}</div>
-                  </div>
-                )) : <div className="small">No cards yet — waiting for deal...</div>}
-              </div>
-            </div>
-
-            <div style={{marginTop:12}} className="log panel">
-              {log.map((l,i)=> <div key={i} className="log-item">{l}</div>)}
+          <div style={{marginTop:12}} className="log panel">
+            <h4>Log</h4>
+            <div className="log">
+              {log.map((l,i)=><div key={i} className="small">{l}</div>)}
             </div>
           </div>
         </div>
 
-        <div className="right-col">
-          <div className="panel">
-            <h3>Room Players</h3>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8}}>
-              {players.length ? players.map(p => (
-                <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:8,background:"rgba(255,255,255,0.01)",borderRadius:8}}>
-                  <div>
-                    <div style={{fontWeight:700}}>{p.name}</div>
-                    <div className="small">{p.isBot ? "Bot" : "Human"}</div>
-                  </div>
-                  <div className="small">Seat</div>
-                </div>
-              )) : <div className="small">No players yet</div>}
-            </div>
-
-            <hr style={{border:"none",borderTop:"1px solid rgba(255,255,255,0.04)",margin:"12px 0"}} />
-
-            <div>
-              <button className="btn" onClick={()=>socket.emit("quickJoin", { username: user.username })}>Quick Join</button>
-              <button className="btn secondary" onClick={()=>socket.emit("startGame", room)}>Force Start</button>
-            </div>
+        <div style={{width:320}} className="panel">
+          <h4>Players</h4>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {players.length ? players.map(p=>
+              <div key={p.id} style={{display:'flex',justifyContent:'space-between',padding:8,background:'rgba(255,255,255,0.02)',borderRadius:6}}>
+                <div>{p.name}</div><div className="small">{p.isBot ? 'Bot' : 'Human'}</div>
+              </div>
+            ) : <div className="small">No players yet</div>}
           </div>
 
-          <div className="panel" style={{marginTop:12}}>
-            <h4>Game Info</h4>
-            <div className="small">Casino style UI • Bots auto-fill seats • Private deals via socket</div>
+          <hr style={{margin:'12px 0',borderTop:'1px solid rgba(255,255,255,0.03)'}}/>
+
+          <div className="small">Auto-fill bots in ~3s if seats empty. Click card to play. Bots play automatically.</div>
+          <div style={{marginTop:10,display:'flex',gap:8}}>
+            <button className="btn" onClick={()=>socket.emit('quickJoin',{username})}>Quick Join</button>
+            <button className="btn" onClick={()=>socket.emit('startGame', room)}>Force Start</button>
           </div>
         </div>
       </div>

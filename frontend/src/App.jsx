@@ -13,7 +13,7 @@ export default function App() {
   }, [user]);
 
   return user ? (
-    <Table user={user} />
+    <Table username={user.username} />
   ) : (
     <Login onLogin={(username, token) => setUser({ username, token })} />
   );

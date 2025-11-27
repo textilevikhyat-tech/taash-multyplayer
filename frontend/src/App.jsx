@@ -1,13 +1,20 @@
-import React, { useState } from "react";
-import Login from "./components/Login";
+import React, { useState, useEffect } from "react";
 import Table from "./components/Table";
+import Login from "./components/Login";
 
-export default function App(){
+export default function App() {
   const [user, setUser] = useState(() => {
-    const username = localStorage.getItem("username");
-    const token = localStorage.getItem("token");
-    return username ? { username, token } : null;
+    const saved = localStorage.getItem("taashUser");
+    return saved ? JSON.parse(saved) : null;
   });
 
-  return user ? <Table user={user} onLogout={() => { localStorage.clear(); setUser(null); }} /> : <Login onLogin={(u,t)=> { localStorage.setItem("username", u); if(t) localStorage.setItem("token", t); setUser({ username: u, token: t }); }} />;
+  useEffect(() => {
+    if (user) localStorage.setItem("taashUser", JSON.stringify(user));
+  }, [user]);
+
+  return user ? (
+    <Table user={user} />
+  ) : (
+    <Login onLogin={(username, token) => setUser({ username, token })} />
+  );
 }

@@ -1,20 +1,13 @@
+// frontend/src/App.jsx
 import React, { useState, useEffect } from "react";
-import Table from "./components/Table";
 import Login from "./components/Login";
+import Table from "./components/Table";
 
-export default function App() {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("taashUser");
-    return saved ? JSON.parse(saved) : null;
+export default function App(){
+  const [user, setUser] = useState(()=> {
+    const s = localStorage.getItem("taashUser");
+    return s ? JSON.parse(s) : null;
   });
-
-  useEffect(() => {
-    if (user) localStorage.setItem("taashUser", JSON.stringify(user));
-  }, [user]);
-
-  return user ? (
-    <Table username={user.username} />
-  ) : (
-    <Login onLogin={(username, token) => setUser({ username, token })} />
-  );
+  useEffect(()=> { if(user) localStorage.setItem("taashUser", JSON.stringify(user)); }, [user]);
+  return user ? <Table username={user.username} /> : <Login onLogin={(username)=> setUser({ username })} />;
 }
